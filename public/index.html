@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inicio - Retro Hoops</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/theme.css">
+    <script src="/toast.js"></script>
+    <style>
+        .landing-main {
+            padding: 4rem 0 5rem;
+        }
+
+        .landing-hero {
+            position: relative;
+            overflow: hidden;
+            padding: 4rem;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background:
+                radial-gradient(circle at top left, rgba(255, 106, 0, 0.18), transparent 36%),
+                radial-gradient(circle at right center, rgba(0, 240, 255, 0.14), transparent 34%),
+                linear-gradient(180deg, rgba(21, 15, 36, 0.96), rgba(10, 7, 20, 0.98));
+            box-shadow: 0 24px 80px rgba(0, 0, 0, 0.45);
+        }
+
+        .landing-hero::before,
+        .landing-hero::after {
+            content: '';
+            position: absolute;
+            inset: auto;
+            border-radius: 999px;
+            pointer-events: none;
+            filter: blur(8px);
+        }
+
+        .landing-hero::before {
+            width: 180px;
+            height: 180px;
+            top: -60px;
+            right: -40px;
+            background: rgba(0, 240, 255, 0.12);
+        }
+
+        .landing-hero::after {
+            width: 220px;
+            height: 220px;
+            bottom: -120px;
+            left: -70px;
+            background: rgba(255, 46, 159, 0.1);
+        }
+
+        .hero-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.7rem;
+            margin-bottom: 1.5rem;
+            color: var(--cyan-accent);
+            font-family: var(--font-arcade);
+            font-size: 0.72rem;
+            line-height: 1.6;
+            text-transform: uppercase;
+        }
+
+        .hero-eyebrow::before {
+            content: '';
+            width: 18px;
+            height: 2px;
+            background: var(--orange);
+            box-shadow: 0 0 12px var(--orange-glow);
+        }
+
+        .landing-hero h1 {
+            margin: 0;
+            max-width: 12ch;
+            font-family: var(--font-arcade);
+            font-size: clamp(2.4rem, 7vw, 5.4rem);
+            line-height: 1.2;
+            letter-spacing: -2px;
+            text-transform: uppercase;
+            text-shadow: 4px 4px 0 rgba(0, 240, 255, 0.24);
+        }
+
+        .landing-hero p {
+            max-width: 760px;
+            margin: 1.5rem 0 0;
+            color: var(--text-muted);
+            font-size: clamp(1.05rem, 2vw, 1.25rem);
+            line-height: 1.8;
+        }
+
+        .hero-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            align-items: center;
+            margin-top: 2rem;
+        }
+
+        .hero-actions .btn {
+            min-width: 220px;
+        }
+
+        .hero-note {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .benefits-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .benefit-card {
+            position: relative;
+            min-height: 220px;
+            padding: 1.75rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: linear-gradient(180deg, rgba(27, 19, 48, 0.98), rgba(21, 15, 36, 0.95));
+            overflow: hidden;
+        }
+
+        .benefit-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, transparent 0%, rgba(255, 255, 255, 0.04) 50%, transparent 100%);
+            pointer-events: none;
+        }
+
+        .benefit-kicker {
+            margin: 0 0 1rem;
+            color: var(--orange);
+            font-family: var(--font-arcade);
+            font-size: 0.7rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .benefit-card h2 {
+            margin: 0;
+            font-family: var(--font-arcade);
+            font-size: 1rem;
+            line-height: 1.7;
+            color: var(--text-main);
+            text-transform: uppercase;
+        }
+
+        .benefit-card p {
+            margin: 1rem 0 0;
+            color: var(--text-muted);
+            line-height: 1.8;
+        }
+
+        .benefit-accent {
+            display: inline-flex;
+            margin-top: 1.5rem;
+            color: var(--cyan-accent);
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+
+        .section-label {
+            margin: 0 0 1rem;
+            color: var(--gold);
+            font-family: var(--font-arcade);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+        }
+
+        @media (max-width: 960px) {
+            .landing-hero {
+                padding: 3rem 1.5rem;
+            }
+
+            .benefits-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="/" class="logo">RETRO HOOPS</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-wrapper" id="nav-wrapper">
+            <nav class="main-nav">
+                <a href="/">Inicio</a>
+                <a href="/ligas.html">Ligas</a>
+                <a href="/franquicias.html">Franquicias</a>
+                <a href="/estadisticas.html">Estadísticas</a>
+            </nav>
+            <div class="header-actions">
+                <span id="user-greeting" class="user-greeting"></span>
+                <a href="/login.html" class="btn" id="btn-login"><span class="btn-content">Iniciar Sesión</span></a>
+                <a href="/registro.html" class="btn btn-cyan" id="btn-register"><span class="btn-content">Registrarse</span></a>
+                <button class="btn btn-ghost" id="btn-logout" style="display: none;"><span class="btn-content">Cerrar Sesión</span></button>
+            </div>
+        </div>
+    </header>
+
+    <main class="landing-main">
+        <div class="container">
+            <section class="landing-hero card fade-in-up">
+                <span class="hero-eyebrow">Plataforma premium para torneos de basket</span>
+                <h1>Gestiona ligas con nivel profesional.</h1>
+                <p>
+                    Retro Hoops centraliza inscripciones, estadísticas y estructura competitiva para
+                    organizadores de básquetbol amateur y profesional que quieren operar con velocidad,
+                    orden y una experiencia de juego de alto impacto.
+                </p>
+                <div class="hero-actions">
+                    <a href="/crear-torneo.html" class="btn btn-cyan"><span class="btn-content">Registrar Torneo</span></a>
+                    <span class="hero-note">Diseñado para torneos que quieren verse y sentirse de primer nivel.</span>
+                </div>
+            </section>
+
+            <section style="margin-top: 2.5rem;">
+                <p class="section-label">Beneficios clave</p>
+                <div class="benefits-grid">
+                    <article class="benefit-card card reveal">
+                        <p class="benefit-kicker">Tiempo real</p>
+                        <h2>Estadísticas en vivo</h2>
+                        <p>
+                            Sigue marcadores, rendimiento y avance competitivo con una vista clara para
+                            equipos, capitanes y organizadores.
+                        </p>
+                        <span class="benefit-accent">Control total del juego</span>
+                    </article>
+
+                    <article class="benefit-card card reveal">
+                        <p class="benefit-kicker">Roster y identidad</p>
+                        <h2>Gestión de Franquicias</h2>
+                        <p>
+                            Administra equipos, planteles y perfiles de franquicia desde un solo lugar,
+                            con una experiencia ordenada y fácil de operar.
+                        </p>
+                        <span class="benefit-accent">Más organización</span>
+                    </article>
+
+                    <article class="benefit-card card reveal">
+                        <p class="benefit-kicker">Formato competitivo</p>
+                        <h2>Generación de Brackets</h2>
+                        <p>
+                            Construye cuadros de eliminación y fases de torneo con una estructura visual
+                            clara para playoffs y etapas decisivas.
+                        </p>
+                        <span class="benefit-accent">Llave lista para competir</span>
+                    </article>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <footer class="site-footer">
+        <span class="footer-logo">RETRO HOOPS</span>
+        <div class="footer-links">
+            <a href="/">Inicio</a>
+            <a href="/franquicias.html">Franquicias</a>
+            <a href="/estadisticas.html">Estadísticas</a>
+            <a href="/crear-torneo.html">Nuevo Torneo</a>
+        </div>
+        <p>&copy; 2026 Retro Hoops. Todos los derechos reservados.</p>
+    </footer>
+    
+
+    <script src="/js/nav.js">
+        document.addEventListener('DOMContentLoaded', () => {
+        // Buscamos si el usuario ya inició sesión
+        const token = localStorage.getItem('kphoops_token');
+        
+        // Si el token existe, lo redirigimos automáticamente a su panel de gestión
+        if (token) {
+            window.location.replace('/ligas.html');
+        }
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Nota: SQLite no soporta 'enum' en Prisma de forma nativa.
+// Usamos un String para el rol global del usuario; los valores esperados son:
+// ADMIN  -> acceso y gestión total de la plataforma (torneos, equipos, usuarios).
+// PLAYER -> usuario normal (rol por defecto al registrarse).
+// "Organizador de torneo" y "Capitán de equipo" NO son roles globales: son
+// posiciones que se derivan de los datos (organizerId de Tournament,
+// captainId de Team) y ya se validan así en cada endpoint.
+
+model User {
+  id           String       @id @default(uuid())
+  email        String       @unique
+  passwordHash String
+  firstName    String
+  lastName     String
+  role         String       @default("PLAYER")
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relación: Un User (organizador) tiene muchos Torneos
+  tournaments  Tournament[]
+  
+  // Relación: Un User (capitán) tiene muchos Equipos
+  captainedTeams Team[]
+}
+
+model Team {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  logoUrl   String?
+  
+  captainId String
+  captain   User     @relation(fields: [captainId], references: [id])
+  
+  players   Player[]
+  enrollments TournamentEnrollment[]
+  
+  homeMatches Match[] @relation("HomeMatches")
+  awayMatches Match[] @relation("AwayMatches")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Player {
+  id           String   @id @default(uuid())
+  name         String
+  jerseyNumber Int
+  position     String
+  photoUrl     String?
+
+  teamId       String
+  team         Team     @relation(fields: [teamId], references: [id])
+  
+  stats        PlayerStat[]
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model PlayerStat {
+  id            String   @id @default(uuid())
+  
+  matchId       String
+  match         Match    @relation(fields: [matchId], references: [id])
+  
+  playerId      String
+  player        Player   @relation(fields: [playerId], references: [id])
+  
+  points        Int      @default(0)
+  rebounds      Int      @default(0)
+  assists       Int      @default(0)
+  minutesPlayed Int      @default(0)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([matchId, playerId])
+}
+
+model Tournament {
+  id          String   @id @default(uuid())
+  name        String
+  category    String
+  venue       String
+  maxTeams    Int
+  startDate   DateTime
+  inscriptionFee Int @default(0)
+
+  organizerId String
+  organizer   User     @relation(fields: [organizerId], references: [id])
+  
+  enrollments TournamentEnrollment[]
+  matches     Match[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model TournamentEnrollment {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  
+  teamId       String
+  team         Team       @relation(fields: [teamId], references: [id])
+  
+  amountPaid   Int        @default(0)
+  status       String     @default("APPROVED") // PENDIENTE, APROBADA, RECHAZADA
+  createdAt    DateTime   @default(now())
+}
+
+model Match {
+  id           String     @id @default(uuid())
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  
+  homeTeamId   String
+  homeTeam     Team       @relation("HomeMatches", fields: [homeTeamId], references: [id])
+  
+  awayTeamId   String
+  awayTeam     Team       @relation("AwayMatches", fields: [awayTeamId], references: [id])
+  
+  matchDate    DateTime
+  homeScore    Int        @default(0)
+  awayScore    Int        @default(0)
+  status       String     @default("SCHEDULED")
+  stage        String     @default("REGULAR")
+  
+  stats        PlayerStat[]
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}
+

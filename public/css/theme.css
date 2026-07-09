@@ -1,0 +1,838 @@
+/* ==========================================================================
+   RETRO HOOPS — Tema "Arcade 80s Basketball"
+   Sistema de diseño compartido: paleta, tipografía, componentes, animaciones
+   ========================================================================== */
+
+:root {
+    /* Paleta arcade / synthwave / cancha nocturna */
+    --purple-deep: #190a2e;
+    --purple: #7b2ff7;
+    --purple-glow: rgba(123, 47, 247, 0.45);
+    --orange: #ff6a00;
+    --orange-2: #ff8c1a;
+    --orange-glow: rgba(255, 106, 0, 0.45);
+    --pink: #ff2e9f;
+    --pink-glow: rgba(255, 46, 159, 0.4);
+    --cyan-accent: #00f0ff;
+    --cyan-glow: rgba(0, 240, 255, 0.4);
+    --gold: #ffd700;
+
+    --bg-dark: #0a0714;
+    --bg-darker: #050309;
+    --card-bg: #150f24;
+    --card-bg-2: #1b1330;
+    --border-soft: rgba(255, 255, 255, 0.1);
+
+    --text-main: #f8fafc;
+    --text-muted: #a79fc2;
+
+    --font-arcade: 'Press Start 2P', cursive;
+    --font-body: 'Outfit', sans-serif;
+
+    --radius: 10px;
+    --transition: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+    font-family: var(--font-body);
+    margin: 0;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    min-height: 100vh;
+    background-image:
+        radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255, 106, 0, 0.16), transparent 60%),
+        radial-gradient(ellipse 900px 500px at 100% 0%, rgba(0, 240, 255, 0.12), transparent 60%),
+        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+    background-size: auto, auto, 30px 30px, 30px 30px;
+    position: relative;
+    overflow-x: hidden;
+}
+
+/* Efecto CRT / scanlines sutil sobre toda la página */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.015) 0px,
+        rgba(255, 255, 255, 0.015) 1px,
+        transparent 2px,
+        transparent 4px
+    );
+    mix-blend-mode: overlay;
+    opacity: 0.5;
+}
+
+::selection { background: var(--orange); color: var(--bg-darker); }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-darker); }
+::-webkit-scrollbar-thumb {
+    background: linear-gradient(var(--orange), var(--pink));
+    border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover { background: linear-gradient(var(--orange-2), var(--cyan-accent)); }
+
+a { color: inherit; }
+
+/* ==========================================================================
+   Header / Navegación
+   ========================================================================== */
+
+header {
+    background-color: rgba(10, 7, 20, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    padding: 1.1rem 2rem;
+    border-bottom: 2px solid var(--orange);
+    box-shadow: 0 2px 20px rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    gap: 1.5rem;
+}
+
+.logo {
+    font-family: var(--font-arcade);
+    font-size: 1.2rem;
+    color: var(--orange);
+    text-decoration: none;
+    text-transform: uppercase;
+    text-shadow: 3px 3px 0px rgba(0, 240, 255, 0.5);
+    letter-spacing: -1px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Envoltorio de las 3 zonas del header: ocupa todo el espacio restante
+   junto al logo, para que la zona central (nav.main-nav) pueda centrarse
+   de verdad dentro de ese espacio, en vez de quedar pegada al logo. */
+.nav-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    gap: 1.5rem;
+    min-width: 0;
+}
+
+/* Zona central: los enlaces de navegación, centrados en el espacio
+   disponible entre el logo (izquierda) y los botones de sesión (derecha). */
+nav.main-nav {
+    display: flex;
+    flex: 1;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+}
+
+nav.main-nav a {
+    text-decoration: none;
+    color: var(--text-main);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 0.9rem;
+    position: relative;
+    transition: color var(--transition);
+    padding: 0.3rem 0;
+}
+
+nav.main-nav a::after {
+    content: '';
+    position: absolute;
+    left: 0; bottom: -8px;
+    width: 0%;
+    height: 2px;
+    background: var(--orange);
+    transition: width var(--transition);
+}
+
+nav.main-nav a:hover,
+nav.main-nav a.active {
+    color: var(--text-main);
+    font-weight: 800;
+}
+
+nav.main-nav a:hover::after,
+nav.main-nav a.active::after {
+    width: 100%;
+}
+
+/* Zona derecha: usuario y botones de sesión, agrupados y pegados al borde
+   derecho (no crecen, mantienen su ancho natural). */
+.header-actions {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: nowrap;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+.user-greeting {
+    color: #d1d5db;
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+    display: none;
+}
+
+/* Hamburguesa (solo visible en móvil) */
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 34px;
+    height: 34px;
+    background: transparent;
+    border: 1px solid var(--orange);
+    border-radius: 6px;
+    cursor: pointer;
+    padding: 6px;
+    z-index: 200;
+}
+
+.nav-toggle span {
+    display: block;
+    height: 2px;
+    width: 100%;
+    background: var(--orange);
+    border-radius: 2px;
+    transition: transform var(--transition), opacity var(--transition);
+}
+
+.nav-toggle.open span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.nav-toggle.open span:nth-child(2) { opacity: 0; }
+.nav-toggle.open span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+/* ==========================================================================
+   Botones
+   ========================================================================== */
+
+.btn {
+    position: relative;
+    background-color: transparent;
+    color: var(--orange);
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    text-decoration: none;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+    padding: 0;
+    border: 2px solid var(--orange);
+    transition: transform var(--transition), box-shadow var(--transition), background-color var(--transition);
+    box-shadow: 0 0 10px var(--orange-glow);
+}
+
+.btn-content {
+    background-color: transparent;
+    height: 100%;
+    width: 100%;
+    border-radius: 4px;
+    padding: 0.6rem 1.2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: all var(--transition);
+    position: relative;
+    color: inherit;
+    gap: 0.4rem;
+}
+
+.btn:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--orange-glow); }
+.btn:active { transform: scale(0.97); }
+.btn:hover .btn-content { background-color: var(--orange); color: var(--bg-darker); }
+
+.btn.btn-cyan { color: var(--cyan-accent); border-color: var(--cyan-accent); box-shadow: 0 0 10px var(--cyan-glow); }
+.btn.btn-cyan:hover .btn-content { background-color: var(--cyan-accent); color: var(--bg-darker); }
+
+.btn.btn-pink { color: var(--pink); border-color: var(--pink); box-shadow: 0 0 10px var(--pink-glow); }
+.btn.btn-pink:hover .btn-content { background-color: var(--pink); color: var(--bg-darker); }
+
+.btn.btn-danger { color: #ff3333; border-color: #ff3333; box-shadow: 0 0 10px rgba(255, 51, 51, 0.4); }
+.btn.btn-danger:hover .btn-content { background-color: #ff3333; color: var(--bg-darker); }
+
+/* Botón primario: única acción sólida y de mayor peso visual en una pantalla
+   (p. ej. "Nuevo Torneo" en el header). Fondo naranja de marca, sin borde. */
+.btn.btn-primary {
+    border-color: transparent;
+    box-shadow: none;
+}
+.btn.btn-primary .btn-content {
+    background-color: var(--orange);
+    color: var(--bg-darker);
+}
+.btn.btn-primary:hover { box-shadow: 0 0 18px var(--orange-glow); }
+.btn.btn-primary:hover .btn-content { background-color: var(--orange-2); color: var(--bg-darker); }
+
+/* Botón "fantasma": para acciones secundarias de bajo compromiso visual
+   (p. ej. "Cerrar Sesión"). Sin borde ni fondo, solo texto que reacciona al pasar el cursor. */
+.btn.btn-ghost {
+    border-color: transparent;
+    box-shadow: none;
+    color: #9ca3af;
+}
+.btn.btn-ghost .btn-content { background-color: transparent; }
+.btn.btn-ghost:hover {
+    box-shadow: none;
+    transform: none;
+}
+.btn.btn-ghost:hover .btn-content {
+    background-color: transparent;
+    color: #ef4444;
+}
+
+/* Variante de "fantasma" para acciones secundarias que NO son destructivas
+   (p. ej. "Editar" en una tarjeta de torneo): mismo look sutil, pero al
+   pasar el cursor se resalta en cian en vez de rojo. */
+.btn.btn-ghost-cyan {
+    border-color: transparent;
+    box-shadow: none;
+    color: #9ca3af;
+}
+.btn.btn-ghost-cyan .btn-content { background-color: transparent; }
+.btn.btn-ghost-cyan:hover {
+    box-shadow: none;
+    transform: none;
+}
+.btn.btn-ghost-cyan:hover .btn-content {
+    background-color: transparent;
+    color: var(--cyan-accent);
+}
+
+/* Botón primario sólido en dorado: para la acción principal de una tarjeta
+   (p. ej. "Inscritos"), distinto del naranja de marca reservado para el CTA
+   global del sitio ("Nuevo Torneo"). */
+.btn.btn-solid-gold {
+    border-color: transparent;
+    box-shadow: none;
+}
+.btn.btn-solid-gold .btn-content {
+    background-color: var(--gold);
+    color: var(--bg-darker);
+}
+.btn.btn-solid-gold:hover { box-shadow: 0 0 18px rgba(255, 215, 0, 0.45); }
+.btn.btn-solid-gold:hover .btn-content { background-color: #ffe066; color: var(--bg-darker); }
+
+.btn.btn-sm .btn-content { padding: 0.4rem 0.8rem; font-size: 0.75rem; }
+
+.btn-submit {
+    width: 100%;
+    background: linear-gradient(135deg, var(--orange), var(--pink));
+    color: var(--bg-darker);
+    padding: 1rem;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-top: 1rem;
+    transition: all var(--transition);
+    box-shadow: 0 0 15px var(--orange-glow);
+}
+
+.btn-submit:hover { transform: translateY(-2px); box-shadow: 0 0 25px var(--orange-glow); filter: brightness(1.1); }
+.btn-submit:active { transform: translateY(0); }
+.btn-submit:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+/* ==========================================================================
+   Layout / Tipografía
+   ========================================================================== */
+
+.container {
+    max-width: 1200px;
+    margin: 3rem auto;
+    padding: 0 1.5rem;
+}
+
+.container-narrow {
+    max-width: 480px;
+    margin: 4rem auto;
+    padding: 2.2rem;
+    background: linear-gradient(160deg, var(--card-bg), var(--card-bg-2));
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 40px rgba(123, 47, 247, 0.08);
+}
+
+.hero { text-align: center; margin-bottom: 3.5rem; padding: 1rem 0; }
+
+.hero h1, h1.page-title {
+    font-family: var(--font-arcade);
+    font-size: clamp(1.4rem, 4vw, 2.4rem);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    color: var(--text-main);
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.08);
+}
+
+.hero h1 span, h1.page-title span {
+    background: linear-gradient(90deg, var(--orange), var(--pink), var(--cyan-accent), var(--orange));
+    background-size: 300% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gradient-shift 6s linear infinite;
+}
+
+@keyframes gradient-shift {
+    to { background-position: 300% center; }
+}
+
+.hero p, p.page-subtitle {
+    color: var(--text-muted);
+    font-size: 1.15rem;
+    max-width: 620px;
+    margin: 0 auto;
+}
+
+h2.section-title {
+    font-size: clamp(1.3rem, 3vw, 2rem);
+    text-transform: uppercase;
+    border-left: 5px solid var(--cyan-accent);
+    padding-left: 1rem;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+/* ==========================================================================
+   Barra de filtros (búsqueda + selects) — p. ej. sobre el listado de ligas
+   ========================================================================== */
+
+.filters-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 1rem;
+    margin: 0 0 2rem;
+    padding: 1rem 1.25rem;
+    background: var(--card-bg);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+}
+
+.filters-bar .filter-search {
+    flex: 1 1 240px;
+    position: relative;
+}
+
+.filters-bar .filter-search input {
+    width: 100%;
+    padding-left: 2.5rem;
+}
+
+.filters-bar .filter-search::before {
+    content: '🔍';
+    position: absolute;
+    left: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.95rem;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.filters-bar .filter-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+}
+
+.filters-bar .filter-group select {
+    min-width: 170px;
+    width: auto;
+}
+
+@media (max-width: 640px) {
+    .filters-bar { flex-direction: column; align-items: stretch; padding: 1rem; }
+    .filters-bar .filter-group { flex-direction: column; }
+    .filters-bar .filter-group select { width: 100%; min-width: 0; }
+}
+
+/* ==========================================================================
+   Tarjetas (torneos, equipos, jugadores...)
+   ========================================================================== */
+
+.torneos-grid, .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1.75rem;
+}
+
+.torneo-card, .card {
+    background: linear-gradient(160deg, var(--card-bg), var(--card-bg-2));
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    padding: 2.25rem;
+    transition: all var(--transition);
+    position: relative;
+    overflow: hidden;
+}
+
+.torneo-card::before, .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%;
+    height: 4px;
+    background: linear-gradient(90deg, var(--orange), var(--pink), var(--cyan-accent));
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform var(--transition);
+}
+
+.torneo-card:hover, .card:hover {
+    transform: translateY(-6px);
+    border-color: rgba(255, 106, 0, 0.35);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.55), 0 0 25px rgba(123, 47, 247, 0.15);
+}
+
+.torneo-card:hover::before, .card:hover::before { transform: scaleX(1); }
+
+.torneo-card h3, .card h3 { font-size: 1.4rem; margin: 0.5rem 0; color: var(--text-main); }
+.torneo-card p, .card p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; }
+
+.torneo-status, .badge {
+    display: inline-block;
+    padding: 0.3rem 0.8rem;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 1rem;
+}
+
+.status-live, .badge-cyan { background: rgba(0, 240, 255, 0.1); color: var(--cyan-accent); border: 1px solid var(--cyan-accent); animation: pulse-glow 2s ease-in-out infinite; }
+.status-open, .badge-orange { background: rgba(255, 106, 0, 0.1); color: var(--orange); border: 1px solid var(--orange); }
+.status-ended, .badge-muted { background: rgba(167, 159, 194, 0.1); color: var(--text-muted); border: 1px solid var(--text-muted); }
+.badge-gold { background: rgba(255, 215, 0, 0.1); color: var(--gold); border: 1px solid var(--gold); }
+.badge-pink { background: rgba(255, 46, 159, 0.1); color: var(--pink); border: 1px solid var(--pink); }
+
+@keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 4px rgba(0, 240, 255, 0.4); }
+    50% { box-shadow: 0 0 14px rgba(0, 240, 255, 0.75); }
+}
+
+.card-details {
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    font-size: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    color: var(--text-main);
+}
+
+/* Etiqueta en gris más oscuro, valor en blanco: crea contraste real
+   entre "qué es el dato" y "cuál es el dato" (ej. Cupos: 12/16). */
+.card-details strong { color: #6b7280; font-weight: 600; }
+
+/* ==========================================================================
+   Formularios
+   ========================================================================== */
+
+.form-group { margin-bottom: 1.5rem; }
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+}
+
+input, select, textarea {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    color: var(--text-main);
+    font-family: var(--font-body);
+    font-size: 1rem;
+    transition: all var(--transition);
+}
+
+textarea { resize: vertical; min-height: 90px; }
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--orange);
+    box-shadow: 0 0 12px var(--orange-glow);
+    background-color: rgba(255, 255, 255, 0.08);
+}
+
+.back-link {
+    display: block;
+    text-align: center;
+    margin-top: 1.5rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color var(--transition);
+}
+
+.back-link:hover { color: var(--cyan-accent); }
+
+/* ==========================================================================
+   Tablas
+   ========================================================================== */
+
+.table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border-soft); }
+
+table.kp-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--card-bg);
+    min-width: 500px;
+}
+
+table.kp-table th {
+    background: rgba(255, 106, 0, 0.08);
+    color: var(--orange);
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    letter-spacing: 1px;
+    padding: 0.9rem 1rem;
+    text-align: left;
+    white-space: nowrap;
+}
+
+table.kp-table td {
+    padding: 0.85rem 1rem;
+    border-top: 1px solid var(--border-soft);
+    color: var(--text-main);
+    font-size: 0.92rem;
+}
+
+table.kp-table tbody tr { transition: background var(--transition); }
+table.kp-table tbody tr:hover { background: rgba(123, 47, 247, 0.1); }
+
+/* ==========================================================================
+   Modal
+   ========================================================================== */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5, 3, 9, 0.8);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 500;
+    animation: fade-in 0.25s ease;
+}
+
+.modal-box {
+    background: linear-gradient(160deg, var(--card-bg), var(--card-bg-2));
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    padding: 2rem;
+    max-width: 480px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 40px var(--purple-glow);
+    animation: pop-in 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in { from { opacity: 0; transform: scale(0.9) translateY(10px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+.modal-box .modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+}
+
+.modal-box .modal-title {
+    font-family: var(--font-arcade);
+    font-size: 1rem;
+    color: var(--text-main);
+    margin: 0;
+    line-height: 1.5;
+}
+
+.modal-box .modal-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.6rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition: color var(--transition);
+}
+.modal-box .modal-close-btn:hover { color: var(--orange); }
+
+.modal-box .modal-actions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+.modal-box .modal-actions .btn-submit { margin-top: 0; }
+
+/* ==========================================================================
+   Animaciones de entrada / utilidades
+   ========================================================================== */
+
+.reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
+.reveal.in-view { opacity: 1; transform: translateY(0); }
+
+.fade-in-up { animation: fade-in-up 0.6s ease both; }
+@keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.float-ball {
+    display: inline-block;
+    animation: float-ball 3s ease-in-out infinite;
+}
+@keyframes float-ball {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    50% { transform: translateY(-10px) rotate(15deg); }
+}
+
+.skeleton {
+    background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 37%, rgba(255,255,255,0.04) 63%);
+    background-size: 400% 100%;
+    animation: shimmer 1.4s ease infinite;
+    border-radius: 6px;
+    color: transparent !important;
+}
+@keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+/* ==========================================================================
+   Footer
+   ========================================================================== */
+
+footer.site-footer {
+    border-top: 2px solid var(--orange);
+    margin-top: 4rem;
+    padding: 2.5rem 1.5rem 1.5rem;
+    text-align: center;
+    color: #9ca3af;
+    background: rgba(5, 3, 9, 0.6);
+}
+
+footer.site-footer .footer-logo {
+    font-family: var(--font-arcade);
+    color: var(--orange);
+    font-size: 1rem;
+    text-shadow: 2px 2px 0 rgba(0, 240, 255, 0.5);
+    margin-bottom: 0.75rem;
+    display: inline-block;
+}
+
+footer.site-footer p { margin: 0.3rem 0; font-size: 0.9rem; letter-spacing: 0.05em; }
+footer.site-footer .footer-links { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin: 1rem 0; }
+footer.site-footer .footer-links a { color: #9ca3af; text-decoration: none; font-size: 0.9rem; letter-spacing: 0.05em; transition: color var(--transition); }
+footer.site-footer .footer-links a:hover { color: var(--cyan-accent); }
+
+/* ==========================================================================
+   Responsividad
+   ========================================================================== */
+
+@media (max-width: 1150px) {
+    /* En móvil, el envoltorio completo (enlaces + botones de sesión) se
+       convierte en el panel deslizable, para que ambos grupos se muestren
+       juntos al abrir el menú. */
+    .nav-wrapper {
+        position: fixed;
+        top: 0; right: 0;
+        height: 100vh;
+        width: min(78vw, 300px);
+        background: linear-gradient(160deg, var(--bg-darker), var(--purple-deep));
+        border-left: 2px solid var(--orange);
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-start;
+        padding: 6rem 2rem 2rem;
+        gap: 1.75rem;
+        transform: translateX(100%);
+        transition: transform var(--transition);
+        z-index: 150;
+        box-shadow: -10px 0 40px rgba(0,0,0,0.6);
+        overflow-y: auto;
+    }
+
+    .nav-wrapper.open { transform: translateX(0); }
+
+    nav.main-nav {
+        flex: none;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: flex-start;
+        width: 100%;
+        gap: 1.75rem;
+    }
+
+    .nav-toggle { display: flex; }
+
+    header { padding: 1rem 1.25rem; flex-wrap: nowrap; }
+
+    .header-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        width: 100%;
+    }
+    .header-actions .btn .btn-content { padding: 0.5rem 0.8rem; font-size: 0.8rem; }
+    .user-greeting { display: none !important; }
+}
+
+@media (max-width: 640px) {
+    .container { margin: 2rem auto; padding: 0 1rem; }
+    .hero h1, h1.page-title { font-size: clamp(1.1rem, 6vw, 1.6rem); }
+    .hero p, p.page-subtitle { font-size: 1rem; }
+    .torneos-grid, .cards-grid { grid-template-columns: 1fr; }
+    .container-narrow { margin: 2rem auto; padding: 1.5rem; width: 92%; }
+    h2.section-title { font-size: 1.2rem; }
+    .header-actions .btn:not(.btn-icon-only) span.btn-label-full { display: none; }
+}
+
+@media (max-width: 420px) {
+    .logo { font-size: 0.95rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; transition-duration: 0.001ms !important; }
+}
+
+/* Fix global para todos los menús desplegables (Modo Oscuro) */
+select option {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    padding: 10px !important;
+}
+
+select option:checked,
+select option:hover {
+    background-color: #1e293b !important;
+}

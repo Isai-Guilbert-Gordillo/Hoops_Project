@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil de Equipo - Retro Hoops</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/theme.css">
+    <script src="/toast.js"></script>
+    <style>
+        /* Delta visual específico de perfil de equipo (no cubierto por theme.css) */
+        .team-hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .team-logo-large {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 3px solid var(--orange);
+            background: var(--card-bg-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-family: var(--font-arcade);
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            box-shadow: 0 0 20px var(--orange-glow);
+        }
+
+        .team-record {
+            background: var(--bg-darker);
+            padding: 0.5rem 1.2rem;
+            border-radius: 4px;
+            border: 1px solid var(--cyan-accent);
+            color: var(--cyan-accent);
+            font-family: var(--font-arcade);
+            font-size: 1rem;
+            margin-top: 0.5rem;
+            box-shadow: 0 0 12px var(--cyan-glow);
+        }
+
+        .match-card {
+            background: linear-gradient(160deg, var(--card-bg), var(--card-bg-2));
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius);
+            padding: 1.2rem 1.5rem;
+            margin-bottom: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all var(--transition);
+        }
+
+        .match-card:hover {
+            border-color: rgba(0, 240, 255, 0.35);
+            transform: translateY(-3px);
+        }
+
+        .match-info {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .match-teams {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .match-vs {
+            color: var(--orange);
+            font-family: var(--font-arcade);
+            font-size: 0.7rem;
+            margin: 0 0.5rem;
+        }
+
+        .match-score {
+            font-family: var(--font-arcade);
+            font-size: 1.2rem;
+            color: var(--cyan-accent);
+            text-shadow: 0 0 10px var(--cyan-glow);
+        }
+
+        .match-meta {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        #error-message {
+            text-align: center;
+            font-size: 1.2rem;
+            color: var(--orange);
+            margin-top: 3rem;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">RETRO HOOPS</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-wrapper" id="nav-wrapper">
+            <nav class="main-nav">
+                <a href="/">Inicio</a>
+                <a href="/ligas.html">Ligas</a>
+                <a href="/franquicias.html">Franquicias</a>
+                <a href="/estadisticas.html">Estadísticas</a>
+            </nav>
+            <div class="header-actions">
+                <span id="user-greeting" class="user-greeting" style="display: none;"></span>
+                <a href="/login.html" class="btn" id="btn-login"><span class="btn-content">Iniciar Sesión</span></a>
+                <a href="/registro.html" class="btn btn-cyan" id="btn-register"><span class="btn-content">Registrarse</span></a>
+                <button class="btn btn-ghost" id="btn-logout" style="display: none;"><span class="btn-content">Cerrar Sesión</span></button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <p id="error-message"></p>
+
+        <div id="content" style="display: none;">
+            <!-- Hero / Header del Equipo -->
+            <div class="hero team-hero fade-in-up">
+                <div id="team-logo-container"></div>
+                <h1 id="team-name">Cargando...</h1>
+                <div class="team-record" id="team-record">Récord: 0 - 0</div>
+            </div>
+
+            <!-- Roster -->
+            <h2 class="section-title reveal">Roster de Jugadores</h2>
+            <div class="table-wrap reveal">
+                <table class="kp-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nombre</th>
+                            <th>Posición</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-body">
+                        <!-- Roster cargado por JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Historial de Partidos -->
+            <h2 class="section-title reveal">Últimos Partidos</h2>
+            <div id="match-history" class="reveal" style="margin-bottom: 4rem;">
+                <!-- Historial cargado por JS -->
+            </div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <span class="footer-logo">RETRO HOOPS</span>
+        <div class="footer-links">
+            <a href="/">Inicio</a>
+            <a href="/franquicias.html">Franquicias</a>
+            <a href="/estadisticas.html">Estadísticas</a>
+        </div>
+        <p>&copy; 2026 Retro Hoops. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="/js/nav.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Manejo de UI Navbar
+            const token = localStorage.getItem('kphoops_token');
+            const userName = localStorage.getItem('kphoops_user_name');
+            const btnLogin = document.getElementById('btn-login');
+            const btnRegister = document.getElementById('btn-register');
+            const btnLogout = document.getElementById('btn-logout');
+            const greeting = document.getElementById('user-greeting');
+
+            if (token && userName) {
+                btnLogin.style.display = 'none';
+                btnRegister.style.display = 'none';
+                greeting.innerText = 'Hola, ' + capitalizeName(userName);
+                greeting.style.display = 'inline-block';
+                btnLogout.style.display = 'inline-block';
+            }
+
+            btnLogout.addEventListener('click', () => {
+                localStorage.removeItem('kphoops_token');
+                localStorage.removeItem('kphoops_user_name');
+                window.location.reload();
+            });
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const teamId = urlParams.get('teamId');
+
+            if (!teamId) {
+                const msg = document.getElementById('error-message');
+                msg.innerText = 'No se especificó ningún equipo.';
+                msg.style.display = 'block';
+                return;
+            }
+
+            try {
+                const res = await fetch(`/api/teams/${teamId}`);
+                if (!res.ok) throw new Error('Equipo no encontrado o error del servidor.');
+                
+                const team = await res.json();
+                
+                // Mostrar contenedor
+                document.getElementById('content').style.display = 'block';
+
+                // -------------- SECTION 1: HEADER --------------
+                document.getElementById('team-name').innerText = team.name;
+
+                let logoHtml = team.logoUrl 
+                    ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo" onerror="this.outerHTML='<div class=\\'team-logo-large\\'>?</div>';">`
+                    : `<div class="team-logo-large">${team.name.charAt(0).toUpperCase()}</div>`;
+                document.getElementById('team-logo-container').innerHTML = logoHtml;
+
+                // Calcular récord con partidos finalizados
+                let wins = 0;
+                let losses = 0;
+                
+                const allMatches = [...(team.homeMatches || []), ...(team.awayMatches || [])];
+                const finishedMatches = allMatches.filter(m => m.status === 'FINISHED' || m.status === 'PLAYED');
+
+                finishedMatches.forEach(m => {
+                    const isHome = m.homeTeamId === teamId;
+                    if (isHome) {
+                        if (m.homeScore > m.awayScore) wins++;
+                        else if (m.homeScore < m.awayScore) losses++;
+                    } else {
+                        if (m.awayScore > m.homeScore) wins++;
+                        else if (m.awayScore < m.homeScore) losses++;
+                    }
+                });
+
+                document.getElementById('team-record').innerText = `Récord: ${wins} - ${losses}`;
+
+                // -------------- SECTION 2: ROSTER --------------
+                const rosterBody = document.getElementById('roster-body');
+                if (team.players && team.players.length > 0) {
+                    team.players.forEach(p => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td style="color: var(--cyan-accent); font-weight: bold;">${p.jerseyNumber}</td>
+                            <td style="font-weight: 600;">
+                                <a href="perfil-jugador.html?playerId=${p.id}" style="color: inherit; text-decoration: none; cursor: pointer;" onmouseover="this.style.color='var(--cyan-accent)'" onmouseout="this.style.color='inherit'">
+                                    ${p.name}
+                                </a>
+                            </td>
+                            <td style="color: var(--text-muted);">${p.position}</td>
+                            <td><span class="badge badge-cyan" style="margin-bottom: 0;">Activo</span></td>
+                        `;
+                        rosterBody.appendChild(tr);
+                    });
+                } else {
+                    rosterBody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Sin jugadores registrados</td></tr>`;
+                }
+
+                // -------------- SECTION 3: MATCH HISTORY --------------
+                const historyContainer = document.getElementById('match-history');
+                
+                if (allMatches.length > 0) {
+                    // Ordenar de más reciente a más antiguo
+                    allMatches.sort((a, b) => new Date(b.matchDate) - new Date(a.matchDate));
+
+                    allMatches.forEach(m => {
+                        // Determinar oponente y marcador
+                        const isHome = m.homeTeamId === teamId;
+                        const opponent = isHome ? m.awayTeam : m.homeTeam;
+                        // Si por algún error no trae awayTeam/homeTeam en el join, protegerlo
+                        const oppName = opponent ? opponent.name : 'Desconocido';
+                        const oppId = opponent ? opponent.id : null;
+                        
+                        const homeScore = m.homeScore;
+                        const awayScore = m.awayScore;
+                        
+                        let resultBadge = '';
+                        let scoreDisp = '';
+                        
+                        const mDate = new Date(m.matchDate).toLocaleDateString('es-ES', { 
+                            year: 'numeric', month: 'short', day: 'numeric' 
+                        });
+                        const mTime = new Date(m.matchDate).toLocaleTimeString('es-ES', { 
+                            hour: '2-digit', minute: '2-digit' 
+                        });
+
+                        if (m.status === 'FINISHED' || m.status === 'PLAYED') {
+                            const won = isHome ? (homeScore > awayScore) : (awayScore > homeScore);
+                            scoreDisp = `${homeScore} - ${awayScore}`;
+                            if (won) {
+                                resultBadge = `<span class="badge" style="background: rgba(76, 175, 80, 0.15); color: #4CAF50; border: 1px solid #4CAF50; margin-bottom: 0;">W</span>`;
+                            } else {
+                                resultBadge = `<span class="badge" style="background: rgba(255, 106, 0, 0.1); color: var(--orange); border: 1px solid var(--orange); margin-bottom: 0;">L</span>`;
+                            }
+                        } else {
+                            scoreDisp = '-';
+                            resultBadge = `<span style="color: var(--text-muted); font-size: 0.8rem;">Próximamente</span>`;
+                        }
+
+                        const matchHtml = `
+                            <div class="match-card">
+                                <div class="match-info">
+                                    <div class="match-meta">
+                                        <span style="color: var(--cyan-accent); font-family: 'Press Start 2P', cursive; font-size: 0.5rem; margin-right: 0.5rem;">${m.tournament ? m.tournament.name : 'Torneo'}</span>
+                                        ${mDate} a las ${mTime}
+                                    </div>
+                                    <div class="match-teams">
+                                        ${isHome ? `<span style="color: var(--text-main);">${team.name}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" style="text-decoration: none; color: var(--text-muted); transition: color 0.3s;" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text-muted)'">${oppName}</a>`}
+                                        <span class="match-vs">VS</span>
+                                        ${!isHome ? `<span style="color: var(--text-main);">${team.name}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" style="text-decoration: none; color: var(--text-muted); transition: color 0.3s;" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text-muted)'">${oppName}</a>`}
+                                    </div>
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                                    ${resultBadge}
+                                    <div class="match-score">${scoreDisp}</div>
+                                </div>
+                            </div>
+                        `;
+                        historyContainer.innerHTML += matchHtml;
+                    });
+                } else {
+                    historyContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); padding: 2rem; border: 1px dashed rgba(255,255,255,0.1); border-radius: 8px;">Este equipo aún no tiene partidos programados.</div>`;
+                }
+
+
+            } catch (err) {
+                console.error(err);
+                const msg = document.getElementById('error-message');
+                msg.innerText = 'Error al cargar el perfil del equipo.';
+                msg.style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>

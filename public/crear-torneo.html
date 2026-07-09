@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crear Torneo - Retro Hoops</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/theme.css">
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">RETRO HOOPS</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-wrapper" id="nav-wrapper">
+            <nav class="main-nav">
+                <a href="/">Inicio</a>
+                <a href="/franquicias.html">Franquicias</a>
+                <a href="/estadisticas.html">Estadísticas</a>
+            </nav>
+        </div>
+    </header>
+
+    <div class="container-narrow fade-in-up">
+        <h1 class="page-title">NUEVO <span>TORNEO</span> <span class="float-ball">🏀</span></h1>
+
+        <!-- Se muestra en vez del formulario si ya alcanzaste el límite de
+             torneos del plan actual (evita llenar el formulario en vano). -->
+        <div id="limit-reached" style="display: none; text-align: center;">
+            <p style="color: var(--text-muted);">Ya tienes el máximo de torneos activos como organizador. El plan actual permite hasta <strong style="color: var(--text-main);">4 torneos</strong>.</p>
+            <a href="/ligas.html" class="btn btn-cyan" style="margin-top: 1rem;"><span class="btn-content">Ver mis Torneos</span></a>
+        </div>
+
+        <form action="/api/torneos" method="POST">
+            <div class="form-group">
+                <label for="nombre">Nombre del Torneo *</label>
+                <input type="text" id="nombre" name="nombre" required placeholder="Ej. Summer League 2026">
+            </div>
+
+            <div class="form-group">
+                <label for="categoria">Categoría *</label>
+                <select id="categoria" name="categoria" required>
+                    <option value="" disabled selected>Selecciona un formato</option>
+                    <option value="3x3">3x3 Streetball</option>
+                    <option value="5x5">5x5 Tradicional</option>
+                    <option value="1x1">1x1 Duelos</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="sede">Cancha / Sede</label>
+                <input type="text" id="sede" name="sede" placeholder="Ej. Cancha Central Norte">
+            </div>
+
+            <div class="form-group">
+                <label for="equipos">Máx. de Equipos / Franquicias *</label>
+                <input type="number" id="equipos" name="equipos" min="2" max="64" placeholder="Ej. 16" required>
+            </div>
+
+            <div class="form-group">
+                <label for="fecha">Fecha de Inicio *</label>
+                <input type="date" id="fecha" name="fecha" required>
+            </div>
+
+            <div class="form-group">
+                <label for="inscriptionFee">Costo de Inscripción ($)</label>
+                <input type="number" id="inscriptionFee" name="inscriptionFee" min="0" placeholder="Ej. 100">
+            </div>
+
+            <button type="submit" class="btn-submit">Registrar Torneo</button>
+        </form>
+        <a href="/" class="back-link">← Volver al Inicio</a>
+    </div>
+
+    <footer class="site-footer">
+        <span class="footer-logo">RETRO HOOPS</span>
+        <div class="footer-links">
+            <a href="/">Inicio</a>
+            <a href="/franquicias.html">Franquicias</a>
+            <a href="/estadisticas.html">Estadísticas</a>
+        </div>
+        <p>&copy; 2026 Retro Hoops. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="/toast.js"></script>
+    <script src="/js/nav.js"></script>
+    <script>
+        const form = document.querySelector('form');
+
+        // Verificar sesión y aviso proactivo de límite de torneos al cargar la página
+        document.addEventListener('DOMContentLoaded', async () => {
+            const token = localStorage.getItem('kphoops_token');
+            if (!token) return; // el submit ya valida y redirige si hace falta
+
+            try {
+                const myTournamentsRes = await fetch('/api/tournaments', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (myTournamentsRes.ok) {
+                    const myTournaments = await myTournamentsRes.json();
+                    if (myTournaments.length >= 4) {
+                        form.style.display = 'none';
+                        document.getElementById('limit-reached').style.display = 'block';
+                    }
+                }
+            } catch (e) {
+                console.error('No se pudo verificar el límite de torneos:', e);
+            }
+        });
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault(); // Evitar recarga de página
+
+            // Verificar si el usuario ha iniciado sesión antes de nada
+            const token = localStorage.getItem('kphoops_token');
+            if (!token) {
+                showToast('Debes iniciar sesión para crear un torneo.', 'error');
+                setTimeout(() => window.location.href = '/login.html', 1500);
+                return;
+            }
+
+            // Extraer datos del formulario
+            const formData = new FormData(form);
+            const formObj = Object.fromEntries(formData.entries());
+
+            // Mapeamos los campos en español al formato inglés del backend
+            const data = {
+                name: formObj.nombre,
+                category: formObj.categoria,
+                venue: formObj.sede,
+                maxTeams: formObj.equipos,
+                startDate: formObj.fecha,
+                inscriptionFee: formObj.inscriptionFee
+            };
+
+            // Enviar petición al backend agregando el Token
+            fetch('/api/tournaments', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + token
+                },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json().then(body => ({ status: res.status, body })))
+            .then(({ status, body }) => {
+                if (status === 401 || status === 403) {
+                    localStorage.removeItem('kphoops_token');
+                    showToast('Sesión expirada o no autorizada', 'error');
+                    setTimeout(() => window.location.href = '/login.html', 1500);
+                    return;
+                }
+                if (status < 200 || status >= 300) {
+                    showToast(body.error || 'No se pudo crear el torneo.', 'error');
+                    return;
+                }
+                showToast('¡Torneo guardado en la base de datos con éxito!', 'success');
+                setTimeout(() => window.location.href = '/ligas.html', 1500);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Error de conexión. Intenta de nuevo.', 'error');
+            });
+        });
+    </script>
+</body>
+</html>

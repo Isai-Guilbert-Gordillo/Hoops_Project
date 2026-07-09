@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil Franquicia - Retro Hoops</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/theme.css">
+    <style>
+        /* Elementos únicos de esta página no cubiertos por theme.css */
+        .team-hero {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .team-logo-hero {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: var(--card-bg-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid var(--cyan-accent);
+            overflow: hidden;
+            flex-shrink: 0;
+            font-family: var(--font-arcade);
+            color: var(--text-muted);
+            font-size: 2rem;
+        }
+
+        .team-logo-hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .team-details h1 {
+            margin: 0 0 1rem 0;
+        }
+
+        .team-details p {
+            margin: 0.5rem 0;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        .team-details span.captain {
+            color: var(--cyan-accent);
+            font-weight: bold;
+        }
+
+        td.jersey {
+            font-family: var(--font-arcade);
+            color: var(--cyan-accent);
+            font-size: 1.1rem;
+        }
+
+        /* Foto del jugador (opcional): avatar circular pequeño en la fila
+           del roster, con placeholder "?" cuando no hay foto cargada. */
+        .player-photo {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--card-bg-2);
+            border: 2px solid var(--orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+            font-family: var(--font-arcade);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .player-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .player-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* ADD PLAYER FORM (Captains only) */
+        .add-player-wrapper {
+            display: none; /* Oculto por defecto */
+        }
+
+        .add-player-wrapper h3 {
+            margin-top: 0;
+            color: var(--orange);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .message-box {
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        @media (max-width: 640px) {
+            .team-hero { flex-direction: column; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <a href="/" class="logo">RETRO HOOPS</a>
+        <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-wrapper" id="nav-wrapper">
+            <nav class="main-nav">
+                <a href="/">Inicio</a>
+                <a href="/ligas.html">Ligas</a>
+                <a href="/franquicias.html">Franquicias</a>
+                <a href="/estadisticas.html">Estadísticas</a>
+            </nav>
+            <div class="header-actions">
+                <span id="user-greeting" class="user-greeting"></span>
+                <a href="/login.html" class="btn" id="btn-login"><span class="btn-content">Iniciar Sesión</span></a>
+                <a href="/registro.html" class="btn btn-cyan" id="btn-register"><span class="btn-content">Registrarse</span></a>
+                <button class="btn btn-ghost" id="btn-logout" style="display: none;"><span class="btn-content">Cerrar Sesión</span></button>
+            </div>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Team Hero Section -->
+        <div class="team-hero card fade-in-up" id="team-hero" style="display: none;">
+            <div class="team-logo-hero" id="team-logo"></div>
+            <div class="team-details">
+                <h1 id="team-name" class="page-title">Cargando...</h1>
+                <p>Capitán: <span class="captain" id="team-captain">---</span></p>
+                <p>Fundación: <span id="team-date">---</span></p>
+            </div>
+        </div>
+
+        <div id="error-message" style="color: var(--orange); display: none; text-align: center; margin: 3rem 0; font-size: 1.2rem;"></div>
+
+        <!-- Roster Section -->
+        <div id="roster-section" style="display:none;" class="reveal">
+            <h2 class="section-title">🏀 Roster Oficial</h2>
+            <div class="table-wrap">
+                <table class="kp-table roster-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 100px;">Dorsal</th>
+                            <th>Jugador</th>
+                            <th>Posición</th>
+                            <th id="roster-actions-header" style="width: 90px; display: none;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-body">
+                        <!-- Filas de jugadores insertadas dinámicamente -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Add Player Form -->
+        <div class="add-player-wrapper card reveal" id="add-player-section">
+            <h3>Gestión de Franquicia</h3>
+            <p style="color: var(--text-muted); margin-top: 0;">Como capitán, puedes registrar los jugadores oficiales de tu equipo.</p>
+            <form id="addPlayerForm">
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2;">
+                        <label for="playerName">Nombre del Jugador</label>
+                        <input type="text" id="playerName" required placeholder="Ej. Michael Jordan">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="jerseyNumber">Dorsal (#)</label>
+                        <input type="number" id="jerseyNumber" required min="0" max="99" placeholder="23">
+                    </div>
+                    <div class="form-group" style="flex: 1;">
+                        <label for="position">Posición</label>
+                        <select id="position" required>
+                            <option value="Base (PG)">Base (PG)</option>
+                            <option value="Escolta (SG)">Escolta (SG)</option>
+                            <option value="Alero (SF)">Alero (SF)</option>
+                            <option value="Ala-Pívot (PF)">Ala-Pívot (PF)</option>
+                            <option value="Pívot (C)">Pívot (C)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex: 2; display: flex; align-items: center; gap: 1rem;">
+                        <div style="flex: 1;">
+                            <label for="playerPhoto">Foto (opcional)</label>
+                            <input type="file" id="playerPhoto" accept="image/*">
+                        </div>
+                        <div class="player-photo" id="playerPhotoPreview" style="display: none;"></div>
+                    </div>
+                    <button type="submit" class="btn-submit" style="width: auto; margin-top: 0;">Añadir Jugador</button>
+                </div>
+            </form>
+            <div id="form-msg" class="message-box"></div>
+        </div>
+    </div>
+
+    <!-- Ventana flotante de confirmación para eliminar un jugador: centrada,
+         con fondo desenfocado (misma clase compartida .modal-overlay/.modal-box). -->
+    <div class="modal-overlay" id="delete-player-modal" style="display: none;">
+        <div class="modal-box" style="max-width: 420px;">
+            <div class="modal-header">
+                <h3 class="modal-title">Eliminar Jugador</h3>
+                <button type="button" class="modal-close-btn" id="delete-player-close" aria-label="Cerrar">&times;</button>
+            </div>
+            <p style="color: var(--text-muted); margin: 0 0 1.5rem;">¿Estás seguro de que deseas eliminar a <strong id="delete-player-name" style="color: var(--text-main);"></strong> del roster? Esta acción no se puede deshacer.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-danger" id="delete-player-confirm"><span class="btn-content">Eliminar</span></button>
+                <button type="button" class="btn btn-ghost" id="delete-player-cancel"><span class="btn-content">Cancelar</span></button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="site-footer">
+        <span class="footer-logo">RETRO HOOPS</span>
+        <div class="footer-links">
+            <a href="/">Inicio</a>
+            <a href="/franquicias.html">Franquicias</a>
+            <a href="/estadisticas.html">Estadísticas</a>
+            <a href="/crear-torneo.html">Nuevo Torneo</a>
+        </div>
+        <p>&copy; 2026 Retro Hoops. Todos los derechos reservados.</p>
+    </footer>
+
+    <script src="/toast.js"></script>
+    <script src="/js/nav.js"></script>
+    <script>
+        // Funciones Utilitarias
+        function parseJwt(token) {
+            try {
+                const base64Url = token.split('.')[1];
+                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+                }).join(''));
+                return JSON.parse(jsonPayload);
+            } catch (e) {
+                return null;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Navbar session checking
+            const token = localStorage.getItem('kphoops_token');
+            const userName = localStorage.getItem('kphoops_user_name');
+            const btnLogin = document.getElementById('btn-login');
+            const btnRegister = document.getElementById('btn-register');
+            const userGreeting = document.getElementById('user-greeting');
+            const btnLogout = document.getElementById('btn-logout');
+
+            let userId = null;
+
+            if (token && userName) {
+                btnLogin.style.display = 'none';
+                btnRegister.style.display = 'none';
+                userGreeting.style.display = 'block';
+                userGreeting.textContent = `Hola, ${capitalizeName(userName)}`;
+                btnLogout.style.display = 'inline-block';
+
+                const decoded = parseJwt(token);
+                if (decoded) userId = decoded.id; // Extraemos el ID del usuario del JWT
+            }
+
+            btnLogout.addEventListener('click', () => {
+                localStorage.removeItem('kphoops_token');
+                localStorage.removeItem('kphoops_user_name');
+                window.location.href = 'index.html';
+            });
+
+            // Extraer ID de equipo de la URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const teamId = urlParams.get('id');
+
+            if (!teamId) {
+                document.getElementById('error-message').innerText = 'No se proporcionó un identificador de equipo.';
+                document.getElementById('error-message').style.display = 'block';
+                return;
+            }
+
+            // Fetch team data
+            try {
+                const response = await fetch(`/api/teams/${teamId}`);
+                if (!response.ok) throw new Error('Equipo no encontrado o error en servidor');
+                const team = await response.json();
+
+                // Llenar header del equipo
+                document.getElementById('team-name').innerText = team.name;
+                document.getElementById('team-captain').innerText = team.captain ? capitalizeName(`${team.captain.firstName} ${team.captain.lastName}`) : 'Desconocido';
+                document.getElementById('team-date').innerText = new Date(team.createdAt).toLocaleDateString('es-ES');
+
+                const logoContainer = document.getElementById('team-logo');
+                if (team.logoUrl) {
+                    logoContainer.innerHTML = `<img src="${team.logoUrl}" alt="Logo" onerror="this.outerHTML='?'">`;
+                } else {
+                    logoContainer.innerText = '?';
+                }
+
+                document.getElementById('team-hero').style.display = 'flex';
+                document.getElementById('roster-section').style.display = 'block';
+
+                // El capitán puede además eliminar jugadores de su propio roster
+                const isCaptain = !!(userId && team.captainId === userId);
+                if (isCaptain) {
+                    document.getElementById('roster-actions-header').style.display = 'table-cell';
+                }
+
+                // Llenar tabla Roster
+                const rosterBody = document.getElementById('roster-body');
+                if (team.players && team.players.length > 0) {
+                    // Ordenar por dorsal opcionalmente
+                    team.players.sort((a, b) => a.jerseyNumber - b.jerseyNumber);
+
+                    team.players.forEach(player => {
+                        const tr = document.createElement('tr');
+                        const photoHtml = player.photoUrl
+                            ? `<div class="player-photo"><img src="${player.photoUrl}" alt="${player.name}" onerror="this.parentElement.innerHTML='?'"></div>`
+                            : `<div class="player-photo">?</div>`;
+                        tr.innerHTML = `
+                            <td class="jersey">#${player.jerseyNumber}</td>
+                            <td><div class="player-cell">${photoHtml}<span>${player.name}</span></div></td>
+                            <td>${player.position}</td>
+                            ${isCaptain ? `<td><button class="btn btn-danger btn-sm" onclick="deletePlayer('${player.id}', '${player.name.replace(/'/g, "\\'")}')"><span class="btn-content">Eliminar</span></button></td>` : ''}
+                        `;
+                        rosterBody.appendChild(tr);
+                    });
+                } else {
+                    rosterBody.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--text-muted);">Sin jugadores registrados.</td></tr>`;
+                }
+
+                // Controlar Acceso: Si el usuario es el capitán, mostramos formulario para añadir
+                if (isCaptain) {
+                    document.getElementById('add-player-section').style.display = 'block';
+                }
+
+            } catch (error) {
+                document.getElementById('error-message').innerText = error.message;
+                document.getElementById('error-message').style.display = 'block';
+            }
+
+            // Vista previa de la foto elegida desde el dispositivo
+            const photoInput = document.getElementById('playerPhoto');
+            const photoPreview = document.getElementById('playerPhotoPreview');
+            photoInput.addEventListener('change', () => {
+                const file = photoInput.files[0];
+                if (!file) {
+                    photoPreview.style.display = 'none';
+                    photoPreview.innerHTML = '';
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    photoPreview.innerHTML = `<img src="${ev.target.result}" alt="Vista previa">`;
+                    photoPreview.style.display = 'flex';
+                };
+                reader.readAsDataURL(file);
+            });
+
+            // Manejo de Agregar Jugador (Solo disponible si está visible)
+            const addForm = document.getElementById('addPlayerForm');
+            addForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const msgBox = document.getElementById('form-msg');
+                msgBox.innerText = '';
+
+                // FormData en vez de JSON: permite adjuntar el archivo de foto
+                // (opcional) subido desde el dispositivo del usuario.
+                const formData = new FormData();
+                formData.append('name', document.getElementById('playerName').value);
+                formData.append('jerseyNumber', document.getElementById('jerseyNumber').value);
+                formData.append('position', document.getElementById('position').value);
+                if (photoInput.files[0]) {
+                    formData.append('photo', photoInput.files[0]);
+                }
+
+                try {
+                    const res = await fetch(`/api/teams/${teamId}/players`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: formData
+                    });
+
+                    const data = await res.json();
+
+                    if (!res.ok) {
+                        msgBox.style.color = 'var(--orange)';
+                        msgBox.innerText = data.error || 'Error al agregar jugador';
+                    } else {
+                        msgBox.style.color = 'var(--cyan-accent)';
+                        msgBox.innerText = '¡Jugador añadido con éxito!';
+                        addForm.reset();
+                        photoPreview.style.display = 'none';
+                        photoPreview.innerHTML = '';
+                        // Recargar tras 1.5s
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                } catch (err) {
+                    msgBox.style.color = 'var(--orange)';
+                    msgBox.innerText = 'Error de conexión';
+                }
+            });
+
+        });
+
+        // --- Ventana flotante de confirmación para eliminar un jugador ---
+        const deletePlayerModal = document.getElementById('delete-player-modal');
+        let playerIdToDelete = null;
+
+        const closeDeletePlayerModal = () => { deletePlayerModal.style.display = 'none'; playerIdToDelete = null; };
+
+        document.getElementById('delete-player-close').addEventListener('click', closeDeletePlayerModal);
+        document.getElementById('delete-player-cancel').addEventListener('click', closeDeletePlayerModal);
+        deletePlayerModal.addEventListener('click', (e) => { if (e.target === deletePlayerModal) closeDeletePlayerModal(); });
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && deletePlayerModal.style.display !== 'none') closeDeletePlayerModal();
+        });
+
+        document.getElementById('delete-player-confirm').addEventListener('click', () => {
+            if (!playerIdToDelete) return;
+
+            const token = localStorage.getItem('kphoops_token');
+            fetch(`/api/players/${playerIdToDelete}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            })
+            .then(res => res.json().then(data => ({ status: res.status, data })))
+            .then(({ status, data }) => {
+                if (status !== 200) throw new Error(data.error || 'Error al eliminar el jugador');
+                showToast('Jugador eliminado', 'success');
+                closeDeletePlayerModal();
+                setTimeout(() => window.location.reload(), 800);
+            })
+            .catch(err => showToast(err.message, 'error'));
+        });
+
+        function deletePlayer(playerId, playerName) {
+            playerIdToDelete = playerId;
+            document.getElementById('delete-player-name').textContent = playerName || 'este jugador';
+            deletePlayerModal.style.display = 'flex';
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,1444 @@
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const crypto = require('crypto');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const { PrismaClient } = require('@prisma/client');
+
+const app = express();
+const port = 3000;
+const prisma = new PrismaClient();
+const JWT_SECRET = 'kphoops_super_secret_key_2026'; // Cambia esto por una variable de entorno en producción
+const AUTH_COOKIE_NAME = 'kphoops_session';
+const JWT_EXPIRES_IN = '24h';
+const JWT_COOKIE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const cookieParser = require('cookie-parser');
+app.use(cookieParser());    
+
+// Límites del plan gratuito (por defecto, mientras no exista un modelo de
+// negocio con niveles pagos). Los ADMIN no están sujetos a estos límites.
+const FREE_PLAN_LIMITS = {
+    MAX_TEAMS_PER_CAPTAIN: 1,
+    MAX_TOURNAMENTS_PER_ORGANIZER: 4
+};
+
+// Middleware para procesar datos de formularios (URL-encoded y JSON)
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+// Servir archivos estáticos desde la carpeta 'public'
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- Subida de fotos de jugador desde el dispositivo del usuario ---
+const playerPhotosDir = path.join(__dirname, 'public', 'uploads', 'players');
+fs.mkdirSync(playerPhotosDir, { recursive: true });
+
+const playerPhotoStorage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, playerPhotosDir),
+    filename: (req, file, cb) => {
+        const uniqueName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${path.extname(file.originalname)}`;
+        cb(null, uniqueName);
+    }
+});
+
+const uploadPlayerPhoto = multer({
+    storage: playerPhotoStorage,
+    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+    fileFilter: (req, file, cb) => {
+        if (!file.mimetype.startsWith('image/')) {
+            return cb(new Error('El archivo debe ser una imagen.'));
+        }
+        cb(null, true);
+    }
+});
+
+// "Base de datos" temporal en memoria
+const torneos = [
+    {
+        id: 1,
+        nombre: 'Summer League 2026',
+        categoria: '5x5',
+        sede: 'Cancha Central Norte',
+        equipos: 16,
+        fecha: '2026-06-14',
+        estado: 'En Juego (Cuartos)',
+        claseEstado: 'status-live',
+        estadisticas: [
+            { nombre: 'Los Titanes', pj: 5, g: 5, p: 0, pts: 10, pf: 450, pc: 400 },
+            { nombre: 'Bulls de la 24', pj: 5, g: 4, p: 1, pts: 9, pf: 430, pc: 390 },
+            { nombre: 'Monstars', pj: 5, g: 3, p: 2, pts: 8, pf: 410, pc: 420 },
+            { nombre: 'Tune Squad', pj: 5, g: 4, p: 1, pts: 9, pf: 460, pc: 400 } // Agregado para probar desempate
+        ]
+    },
+    {
+        id: 2,
+        nombre: 'Streetball 3x3 Night',
+        categoria: '3x3',
+        sede: 'Cancha Callejera',
+        equipos: 12,
+        fecha: '2026-05-23',
+        estado: 'Draft Abierto',
+        claseEstado: 'status-open',
+        estadisticas: [] // Aún sin equipos
+    }
+];
+
+// Ruta para obtener todos los torneos (legado en memoria)
+app.get('/api/torneos', (req, res) => {
+    res.json(torneos);
+});
+
+// Ruta para recibir los datos del formulario de nuevo torneo
+app.post('/api/torneos', (req, res) => {
+    // Código legado omitido (mantenemos para no romper si algo viejo lo usa)
+    res.redirect('/');
+});
+
+// Obtener torneos filtrados por contexto de usuario (opcionalAuth)
+app.get('/api/tournaments', optionalAuthenticateToken, async (req, res) => {
+    try {
+        let whereClause = {};
+
+        // Si hay una sesión activa, traemos solo los del creador logueado
+        if (req.user) {
+            whereClause = { organizerId: req.user.id };
+        }
+
+        const tournaments = await prisma.tournament.findMany({
+            where: whereClause,
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        res.status(200).json(tournaments);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al obtener torneos' });
+    }
+});
+
+// Middleware de autenticación opcional con JWT
+function optionalAuthenticateToken(req, res, next) {
+    const token = getTokenFromRequest(req);
+
+    if (!token) {
+        req.user = null;
+        return next();
+    }
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (!err) {
+            req.user = user;
+        } else {
+            req.user = null;
+        }
+        next();
+    });
+}
+
+// Editar datos de un torneo (Protegido, solo creador)
+app.put('/api/tournaments/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, category, venue, maxTeams, startDate } = req.body;
+
+        const tournament = await prisma.tournament.findUnique({ where: { id } });
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+        if (tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'No tienes permiso para editar este torneo' });
+        }
+
+        const updated = await prisma.tournament.update({
+            where: { id },
+            data: {
+                name: name || tournament.name,
+                category: category || tournament.category,
+                venue: venue || tournament.venue,
+                maxTeams: maxTeams ? parseInt(maxTeams) : tournament.maxTeams,
+                startDate: startDate ? new Date(startDate) : tournament.startDate,
+            }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error("Error al actualizar torneo:", error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Eliminar un torneo (Protegido, solo creador)
+app.delete('/api/tournaments/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const tournament = await prisma.tournament.findUnique({ where: { id } });
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+        if (tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'No tienes permiso para eliminar este torneo' });
+        }
+
+        // Obtener todos los partidos de este torneo
+        const matches = await prisma.match.findMany({ where: { tournamentId: id } });
+        const matchIds = matches.map(m => m.id);
+
+        // Transacción para borrar relaciones hijas y el torneo en cascada manual
+        await prisma.$transaction([
+            prisma.playerStat.deleteMany({ where: { matchId: { in: matchIds } } }),
+            prisma.match.deleteMany({ where: { tournamentId: id } }),
+            prisma.tournamentEnrollment.deleteMany({ where: { tournamentId: id } }),
+            prisma.tournament.delete({ where: { id } })
+        ]);
+
+        res.json({ message: 'Torneo eliminado exitosamente' });
+    } catch (error) {
+        console.error("Error al eliminar torneo:", error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Obtener detalles de un torneo específico y sus equipos inscritos
+app.get('/api/tournaments/:id', optionalAuthenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const tournament = await prisma.tournament.findUnique({
+            where: { id },
+            include: {
+                enrollments: {
+                    include: {
+                        team: true
+                    }
+                },
+                matches: {
+                    include: {
+                        homeTeam: { include: { players: true } },
+                        awayTeam: { include: { players: true } }
+                    },
+                    orderBy: {
+                        matchDate: 'asc'
+                    }
+                }
+            }
+        });
+
+        if (!tournament) {
+            return res.status(404).json({ error: 'Torneo no encontrado' });
+        }
+
+        // 1. Forzamos ambos valores a String para evitar problemas de tipos ("1" vs 1)
+        const isOrganizer = req.user ? String(req.user.id) === String(tournament.organizerId) : false;
+
+        // 2. Chivato en consola para ver exactamente qué está comparando el servidor
+        console.log("-> Chequeo de Seguridad | Mi ID:", req.user?.id, "| Dueño del Torneo:", tournament.organizerId, "| ¿Soy Organizador?:", isOrganizer);
+
+        res.status(200).json({ ...tournament, isOrganizer });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al obtener el torneo' });
+    }
+});
+
+// Middleware de autenticación con JWT
+function authenticateToken(req, res, next) {
+    const token = getTokenFromRequest(req);
+
+    if (!token) return res.status(401).json({ error: 'Acceso denegado. Token no proporcionado.' });
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ error: 'Token inválido o expirado.' });
+
+        req.user = user;
+        next();
+    });
+}
+
+function getTokenFromRequest(req) {
+    const authHeader = req.headers['authorization'];
+    const tokenFromHeader = authHeader && authHeader.startsWith('Bearer ')
+        ? authHeader.split(' ')[1]
+        : null;
+
+    if (tokenFromHeader) return tokenFromHeader;
+
+    const cookies = parseCookies(req.headers.cookie);
+    return cookies[AUTH_COOKIE_NAME] || null;
+}
+
+function parseCookies(cookieHeader) {
+    if (!cookieHeader) return {};
+
+    return cookieHeader
+        .split(';')
+        .map(part => part.trim())
+        .filter(Boolean)
+        .reduce((acc, part) => {
+            const separatorIndex = part.indexOf('=');
+            if (separatorIndex === -1) return acc;
+
+            const key = part.slice(0, separatorIndex);
+            const value = part.slice(separatorIndex + 1);
+            acc[key] = decodeURIComponent(value);
+            return acc;
+        }, {});
+}
+
+function getAuthCookieOptions() {
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    return {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: 'strict',
+        maxAge: JWT_COOKIE_MAX_AGE_MS,
+        path: '/'
+    };
+}
+
+// Consulta el rol ACTUAL del usuario en la base de datos (no el que traía el
+// JWT al momento de iniciar sesión, que puede haber quedado desactualizado
+// si un admin le cambió el rol después).
+async function userIsAdmin(userId) {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    return !!user && user.role === 'ADMIN';
+}
+
+// Middleware: exige que el usuario autenticado sea ADMIN
+async function requireAdmin(req, res, next) {
+    try {
+        if (!(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Esta acción está reservada para administradores.' });
+        }
+        next();
+    } catch (error) {
+        console.error('Error verificando rol de administrador:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+}
+
+// Listar usuarios (solo ADMIN) — para el panel de gestión de roles
+app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const users = await prisma.user.findMany({
+            select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                role: true,
+                createdAt: true
+            },
+            orderBy: { createdAt: 'asc' }
+        });
+        res.json(users);
+    } catch (error) {
+        console.error('Error al listar usuarios:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Cambiar el rol de un usuario (solo ADMIN)
+app.put('/api/users/:id/role', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { role } = req.body;
+        const validRoles = ['PLAYER', 'ADMIN'];
+
+        if (!validRoles.includes(role)) {
+            return res.status(400).json({ error: `Rol inválido. Debe ser uno de: ${validRoles.join(', ')}` });
+        }
+
+        if (id === req.user.id && role !== 'ADMIN') {
+            return res.status(400).json({ error: 'No puedes quitarte a ti mismo el rol de administrador.' });
+        }
+
+        const updated = await prisma.user.update({
+            where: { id },
+            data: { role },
+            select: { id: true, email: true, firstName: true, lastName: true, role: true }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Error al actualizar rol:', error);
+        if (error.code === 'P2025') {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoint para guardar Torneos en la base de datos (Protegido)
+app.post('/api/tournaments', authenticateToken, async (req, res) => {
+    try {
+        const { name, category, venue, maxTeams, startDate, inscriptionFee } = req.body;
+
+        if (!name || !category) {
+            return res.status(400).json({ error: 'El nombre y la categoría del torneo son obligatorios.' });
+        }
+
+        const parsedMaxTeams = parseInt(maxTeams, 10);
+        if (!Number.isInteger(parsedMaxTeams) || parsedMaxTeams < 2) {
+            return res.status(400).json({ error: 'Indica un número válido de equipos/franquicias (mínimo 2).' });
+        }
+
+        const parsedStartDate = new Date(startDate);
+        if (isNaN(parsedStartDate.getTime())) {
+            return res.status(400).json({ error: 'Indica una fecha de inicio válida para el torneo.' });
+        }
+
+        // Límite del plan gratuito: máximo N torneos por organizador (los admin no tienen límite)
+        if (!(await userIsAdmin(req.user.id))) {
+            const tournamentCount = await prisma.tournament.count({ where: { organizerId: req.user.id } });
+            if (tournamentCount >= FREE_PLAN_LIMITS.MAX_TOURNAMENTS_PER_ORGANIZER) {
+                return res.status(400).json({
+                    error: `Alcanzaste el límite de ${FREE_PLAN_LIMITS.MAX_TOURNAMENTS_PER_ORGANIZER} torneos como organizador en el plan actual.`
+                });
+            }
+        }
+
+        // Crear el torneo asociándolo al ID del usuario autenticado
+        const newTournament = await prisma.tournament.create({
+            data: {
+                name,
+                category,
+                venue: venue || '',
+                maxTeams: parsedMaxTeams,
+                startDate: parsedStartDate,
+                inscriptionFee: parseInt(inscriptionFee, 10) || 0,
+                organizerId: req.user.id
+            }
+        });
+
+        res.status(201).json(newTournament);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al registrar el torneo en la base de datos' });
+    }
+});
+
+// Obtener los equipos donde el usuario es capitan
+app.get('/api/users/me/teams', authenticateToken, async (req, res) => {
+    try {
+        const teams = await prisma.team.findMany({
+            where: { captainId: req.user.id },
+            orderBy: { createdAt: 'desc' }
+        });
+        res.status(200).json(teams);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al obtener los equipos del usuario' });
+    }
+});
+
+// Dar de baja a un equipo (Borrar Enrollment)
+app.delete('/api/enrollments/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const enrollment = await prisma.tournamentEnrollment.findUnique({
+            where: { id },
+            include: { tournament: true }
+        });
+
+        if (!enrollment) return res.status(404).json({ error: 'Inscripción no encontrada' });
+
+        // Solo el organizador del torneo (o un admin) puede dar de baja a un inscrito
+        if (enrollment.tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'No tienes permiso para eliminar inscritos' });
+        }
+
+        await prisma.tournamentEnrollment.delete({ where: { id } });
+        res.json({ message: 'Equipo dado de baja exitosamente' });
+    } catch (error) {
+        console.error("Error al eliminar inscripción:", error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Inscribir una franquicia a un torneo
+app.post('/api/tournaments/:id/enroll', authenticateToken, async (req, res) => {
+    try {
+        const { id: tournamentId } = req.params;
+        const { teamId } = req.body;
+
+        // Verificar si el equipo existe y el usuario es el capitan
+        const team = await prisma.team.findUnique({ where: { id: teamId } });
+        if (!team) return res.status(404).json({ error: 'Equipo no encontrado' });
+        if (team.captainId !== req.user.id) return res.status(403).json({ error: 'Solo el capitán puede inscribir el equipo' });
+
+        // Inscribir
+        const enrollment = await prisma.tournamentEnrollment.create({
+            data: {
+                tournamentId,
+                teamId
+            }
+        });
+
+        res.status(201).json(enrollment);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al inscribir el equipo' });
+    }
+});
+
+// Programar un partido en un torneo
+app.post('/api/tournaments/:id/matches', authenticateToken, async (req, res) => {
+    try {
+        const { id: tournamentId } = req.params;
+        const { homeTeamId, awayTeamId, matchDate } = req.body;
+
+        // Verificar torneo
+        const tournament = await prisma.tournament.findUnique({
+            where: { id: tournamentId }
+        });
+
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+        if (tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el organizador del torneo puede programar partidos' });
+        }
+
+        const match = await prisma.match.create({
+            data: {
+                tournamentId,
+                homeTeamId,
+                awayTeamId,
+                matchDate: new Date(matchDate)
+            }
+        });
+
+        res.status(201).json(match);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al programar el partido' });
+    }
+});
+
+// Obtener un partido específico
+app.get('/api/matches/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const match = await prisma.match.findUnique({
+            where: { id },
+            include: {
+                homeTeam: { include: { players: true } },
+                awayTeam: { include: { players: true } },
+                tournament: true
+            }
+        });
+
+        if (!match) {
+            return res.status(404).json({ error: 'Partido no encontrado' });
+        }
+
+        res.status(200).json(match);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al obtener el partido' });
+    }
+});
+
+// Guardar resultado de un partido
+app.put('/api/matches/:id/score', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { homeScore, awayScore } = req.body;
+
+        const currentMatch = await prisma.match.findUnique({
+            where: { id },
+            include: { tournament: true }
+        });
+
+        if (!currentMatch) {
+            return res.status(404).json({ error: 'Partido no encontrado' });
+        }
+
+        if (currentMatch.tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el organizador puede guardar el resultado' });
+        }
+
+        const match = await prisma.match.update({
+            where: { id },
+            data: {
+                homeScore: parseInt(homeScore, 10),
+                awayScore: parseInt(awayScore, 10),
+                status: 'FINISHED'
+            }
+        });
+
+        res.status(200).json(match);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al guardar el resultado' });
+    }
+});
+
+// Guardar/Actualizar Box Score de un partido
+app.post('/api/matches/:id/boxscore', authenticateToken, async (req, res) => {
+    try {
+        const { id: matchId } = req.params;
+        const { stats } = req.body; // array de objetos: [{ playerId, points, rebounds, assists, min }]
+
+        if (!stats || !Array.isArray(stats)) {
+            return res.status(400).json({ error: 'Formato de estadísticas inválido' });
+        }
+
+        const matchForBoxScore = await prisma.match.findUnique({
+            where: { id: matchId },
+            include: { tournament: true }
+        });
+
+        if (!matchForBoxScore) {
+            return res.status(404).json({ error: 'Partido no encontrado' });
+        }
+
+        if (matchForBoxScore.tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el organizador puede guardar box scores' });
+        }
+
+        // Transacción
+        const operations = stats.map(stat => {
+            return prisma.playerStat.upsert({
+                where: {
+                    matchId_playerId: {
+                        matchId: matchId,
+                        playerId: stat.playerId
+                    }
+                },
+                update: {
+                    points: parseInt(stat.points || 0, 10),
+                    rebounds: parseInt(stat.rebounds || 0, 10),
+                    assists: parseInt(stat.assists || 0, 10),
+                    minutesPlayed: parseInt(stat.minutesPlayed || 0, 10)
+                },
+                create: {
+                    matchId: matchId,
+                    playerId: stat.playerId,
+                    points: parseInt(stat.points || 0, 10),
+                    rebounds: parseInt(stat.rebounds || 0, 10),
+                    assists: parseInt(stat.assists || 0, 10),
+                    minutesPlayed: parseInt(stat.minutesPlayed || 0, 10)
+                }
+            });
+        });
+
+        await prisma.$transaction(operations);
+
+        res.status(201).json({ message: 'Estadísticas guardadas con éxito' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al guardar las estadísticas' });
+    }
+});
+
+// Endpoint para guardar Equipos/Franquicias en la base de datos (Protegido)
+app.post('/api/teams', authenticateToken, async (req, res) => {
+    try {
+        const { name, logoUrl } = req.body;
+
+        // Límite del plan gratuito: máximo N franquicias por capitán (los admin no tienen límite)
+        if (!(await userIsAdmin(req.user.id))) {
+            const teamCount = await prisma.team.count({ where: { captainId: req.user.id } });
+            if (teamCount >= FREE_PLAN_LIMITS.MAX_TEAMS_PER_CAPTAIN) {
+                return res.status(400).json({
+                    error: `Alcanzaste el límite de ${FREE_PLAN_LIMITS.MAX_TEAMS_PER_CAPTAIN} franquicia(s) como capitán en el plan actual.`
+                });
+            }
+        }
+
+        const newTeam = await prisma.team.create({
+            data: {
+                name,
+                logoUrl,
+                captainId: req.user.id
+            }
+        });
+
+        res.status(201).json(newTeam);
+    } catch (error) {
+        console.error(error);
+        // Si el nombre ya existe, Prisma lanza un error de constraint única
+        if (error.code === 'P2002') {
+            return res.status(400).json({ error: 'Ya existe una franquicia con ese nombre' });
+        }
+        res.status(500).json({ error: 'Error al registrar el equipo en la base de datos' });
+    }
+});
+
+// Editar una franquicia (Protegido, solo el capitán)
+app.put('/api/teams/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, logoUrl } = req.body;
+
+        const team = await prisma.team.findUnique({ where: { id } });
+        if (!team) return res.status(404).json({ error: 'Franquicia no encontrada' });
+
+        if (team.captainId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'No tienes permiso para editar esta franquicia' });
+        }
+
+        const updated = await prisma.team.update({
+            where: { id },
+            data: {
+                name: name || team.name,
+                logoUrl: logoUrl !== undefined ? logoUrl : team.logoUrl
+            }
+        });
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Error al actualizar franquicia:', error);
+        if (error.code === 'P2002') {
+            return res.status(400).json({ error: 'Ya existe una franquicia con ese nombre' });
+        }
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Eliminar una franquicia (Protegido, solo el capitán; bloqueado si ya tiene partidos)
+app.delete('/api/teams/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const team = await prisma.team.findUnique({ where: { id } });
+        if (!team) return res.status(404).json({ error: 'Franquicia no encontrada' });
+
+        if (team.captainId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'No tienes permiso para eliminar esta franquicia' });
+        }
+
+        const matchCount = await prisma.match.count({
+            where: { OR: [{ homeTeamId: id }, { awayTeamId: id }] }
+        });
+
+        if (matchCount > 0) {
+            return res.status(400).json({ error: 'No puedes eliminar una franquicia con partidos programados o jugados. Elimina primero esos partidos o el torneo correspondiente.' });
+        }
+
+        const players = await prisma.player.findMany({ where: { teamId: id } });
+        const playerIds = players.map(p => p.id);
+
+        await prisma.$transaction([
+            prisma.playerStat.deleteMany({ where: { playerId: { in: playerIds } } }),
+            prisma.player.deleteMany({ where: { teamId: id } }),
+            prisma.tournamentEnrollment.deleteMany({ where: { teamId: id } }),
+            prisma.team.delete({ where: { id } })
+        ]);
+
+        // Borrar del disco las fotos subidas de los jugadores del equipo eliminado
+        players.forEach(player => {
+            if (player.photoUrl && player.photoUrl.startsWith('/uploads/players/')) {
+                fs.unlink(path.join(__dirname, 'public', player.photoUrl), () => {});
+            }
+        });
+
+        res.json({ message: 'Franquicia eliminada exitosamente' });
+    } catch (error) {
+        console.error('Error al eliminar franquicia:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Endpoint público para obtener todas las franquicias
+app.get('/api/teams', async (req, res) => {
+    try {
+        const teams = await prisma.team.findMany({
+            include: {
+                captain: {
+                    select: {
+                        firstName: true,
+                        lastName: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+        res.status(200).json(teams);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al obtener franquicias completas' });
+    }
+});
+
+// Endpoint para obtener los detalles de un equipo junto con su capitan y su roster (jugadores) y partidos
+app.get('/api/teams/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const team = await prisma.team.findUnique({
+            where: { id },
+            include: {
+                captain: true,
+                players: true,
+                homeMatches: {
+                    include: {
+                        awayTeam: true,
+                        tournament: true
+                    },
+                    orderBy: {
+                        matchDate: 'desc'
+                    }
+                },
+                awayMatches: {
+                    include: {
+                        homeTeam: true,
+                        tournament: true
+                    },
+                    orderBy: {
+                        matchDate: 'desc'
+                    }
+                }
+            }
+        });
+
+        if (!team) {
+            return res.status(404).json({ error: 'Equipo no encontrado' });
+        }
+
+        res.status(200).json(team);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al buscar el equipo' });
+    }
+});
+
+// Endpoint para que el capitán agregue jugadores a su equipo (Protegido)
+app.post('/api/teams/:id/players', authenticateToken, (req, res, next) => {
+    // Middleware de subida envuelto a mano para poder responder con JSON
+    // (no la página de error por defecto de Express) si el archivo es
+    // demasiado grande o no es una imagen.
+    uploadPlayerPhoto.single('photo')(req, res, (err) => {
+        if (err) return res.status(400).json({ error: err.message || 'Error al subir la foto' });
+        next();
+    });
+}, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, jerseyNumber, position, photoUrl } = req.body;
+
+        // Buscar el equipo para validar el capitán
+        const team = await prisma.team.findUnique({
+            where: { id }
+        });
+
+        if (!team) {
+            return res.status(404).json({ error: 'Equipo no encontrado' });
+        }
+
+        // Solo el capitán (o un admin) puede agregar jugadores
+        if (req.user.id !== team.captainId && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el capitán de la franquicia puede registrar jugadores.' });
+        }
+
+        // La foto es opcional: puede venir como archivo subido desde el
+        // dispositivo (req.file) o, si algún cliente aún la manda así, como URL.
+        const uploadedPhotoUrl = req.file ? `/uploads/players/${req.file.filename}` : (photoUrl || null);
+
+        // Registrar el jugador
+        const newPlayer = await prisma.player.create({
+            data: {
+                name,
+                jerseyNumber: parseInt(jerseyNumber, 10),
+                position,
+                photoUrl: uploadedPhotoUrl,
+                teamId: id
+            }
+        });
+
+        res.status(201).json(newPlayer);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al agregar jugador al equipo' });
+    }
+});
+
+// Eliminar un jugador del roster (Protegido, solo el capitán de su equipo)
+app.delete('/api/players/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const player = await prisma.player.findUnique({
+            where: { id },
+            include: { team: true }
+        });
+
+        if (!player) {
+            return res.status(404).json({ error: 'Jugador no encontrado' });
+        }
+
+        if (req.user.id !== player.team.captainId && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el capitán de la franquicia puede eliminar jugadores.' });
+        }
+
+        await prisma.$transaction([
+            prisma.playerStat.deleteMany({ where: { playerId: id } }),
+            prisma.player.delete({ where: { id } })
+        ]);
+
+        // Si la foto era un archivo subido por el usuario, la borramos del disco
+        if (player.photoUrl && player.photoUrl.startsWith('/uploads/players/')) {
+            const filePath = path.join(__dirname, 'public', player.photoUrl);
+            fs.unlink(filePath, () => {}); // best-effort, no bloquea la respuesta
+        }
+
+        res.json({ message: 'Jugador eliminado exitosamente' });
+    } catch (error) {
+        console.error('Error al eliminar jugador:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Ruta real para registro de usuario con bcrypt y JWT
+app.post('/api/auth/register', async (req, res) => {
+    try {
+        const { email, password, firstName, lastName } = req.body;
+        
+        // Verificar si el usuario ya existe
+        const existingUser = await prisma.user.findUnique({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({ error: 'El usuario ya existe' });
+        }
+
+        // Encriptar la contraseña
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        // Crear el usuario en la BD (asumiendo esquema con UUID, firstName, lastName y role)
+        const newUser = await prisma.user.create({
+            data: {
+                email,
+                passwordHash: hashedPassword,
+                firstName,
+                lastName,
+                role: 'PLAYER' // Default asignado en la DB también
+            }
+        });
+
+        res.status(201).json({ message: 'Usuario registrado exitosamente', userId: newUser.id });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Ruta real para login de usuario con JWT
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+
+        // Buscar el usuario
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) {
+            return res.status(401).json({ error: 'Credenciales inválidas' });
+        }
+
+        // Comparar contraseña con el hash de la BD (recuerda que tu esquema lo nombra "passwordHash")
+        const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
+        if (!isPasswordValid) {
+            return res.status(401).json({ error: 'Credenciales inválidas' });
+        }
+
+        // Generar JWT con id y role, asignando un periodo de validez de 24h
+        const token = jwt.sign(
+            { id: user.id, role: user.role },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN }
+        );
+
+        res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+
+        res.json({
+            message: 'Login exitoso',
+            user: { 
+                id: user.id, 
+                email: user.email, 
+                firstName: user.firstName, 
+                lastName: user.lastName, 
+                role: user.role 
+            }
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+    res.clearCookie(AUTH_COOKIE_NAME, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict',
+        path: '/'
+    });
+
+    res.status(200).json({ message: 'Logout exitoso' });
+});
+
+// Obtener standings del torneo
+app.get('/api/tournaments/:id/standings', async (req, res) => {
+    try {
+        const { id: tournamentId } = req.params;
+
+        // Validar si el torneo existe
+        const tournament = await prisma.tournament.findUnique({
+            where: { id: tournamentId }
+        });
+
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+        // Obtener equipos inscritos
+        const enrollments = await prisma.tournamentEnrollment.findMany({
+            where: { tournamentId },
+            include: { team: true }
+        });
+
+        const teams = enrollments.map(e => e.team);
+
+        // Obtener partidos FINISHED
+        const matches = await prisma.match.findMany({
+            where: { 
+                tournamentId, 
+                status: 'FINISHED' 
+            }
+        });
+
+        // Inicializar standings
+        const standings = teams.map(team => ({
+            teamId: team.id,
+            teamName: team.name,
+            logoUrl: team.logoUrl,
+            pj: 0,
+            g: 0,
+            p: 0,
+            pf: 0,
+            pc: 0,
+            diff: 0
+        }));
+
+        // Calcular estadísticas
+        matches.forEach(match => {
+            const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
+            const awayTeam = standings.find(s => s.teamId === match.awayTeamId);
+
+            if (homeTeam && awayTeam) {
+                homeTeam.pj += 1;
+                homeTeam.pf += match.homeScore;
+                homeTeam.pc += match.awayScore;
+                
+                awayTeam.pj += 1;
+                awayTeam.pf += match.awayScore;
+                awayTeam.pc += match.homeScore;
+
+                if (match.homeScore > match.awayScore) {
+                    homeTeam.g += 1;
+                    awayTeam.p += 1;
+                } else if (match.awayScore > match.homeScore) {
+                    awayTeam.g += 1;
+                    homeTeam.p += 1;
+                }
+            }
+        });
+
+        // Calcular diferencia y ordenar
+        standings.forEach(s => {
+            s.diff = s.pf - s.pc;
+        });
+
+        standings.sort((a, b) => {
+            if (b.g !== a.g) return b.g - a.g;
+            return b.diff - a.diff;
+        });
+
+        res.status(200).json(standings);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al calcular las posiciones' });
+    }
+});
+
+// GET Líderes del Torneo
+app.get('/api/tournaments/:id/leaders', async (req, res) => {
+    try {
+        const { id: tournamentId } = req.params;
+
+        const matches = await prisma.match.findMany({
+            where: {
+                tournamentId,
+                status: 'FINISHED'
+            },
+            include: {
+                stats: {
+                    include: {
+                        player: {
+                            include: {
+                                team: true
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        const playerStats = {};
+
+        matches.forEach(match => {
+            match.stats.forEach(stat => {
+                const pId = stat.player.id;
+                if (!playerStats[pId]) {
+                    playerStats[pId] = {
+                        playerId: pId,
+                        name: stat.player.name,
+                        teamId: stat.player.team.id,
+                        teamName: stat.player.team.name,
+                        logoUrl: stat.player.team.logoUrl,
+                        gamesPlayed: 0,
+                        totalPoints: 0,
+                        totalRebounds: 0,
+                        totalAssists: 0
+                    };
+                }
+                playerStats[pId].gamesPlayed += 1;
+                playerStats[pId].totalPoints += stat.points;
+                playerStats[pId].totalRebounds += stat.rebounds;
+                playerStats[pId].totalAssists += stat.assists;
+            });
+        });
+
+        const playersArray = Object.values(playerStats).map(p => ({
+            ...p,
+            pointsPerGame: parseFloat((p.totalPoints / p.gamesPlayed).toFixed(1)),
+            reboundsPerGame: parseFloat((p.totalRebounds / p.gamesPlayed).toFixed(1)),
+            assistsPerGame: parseFloat((p.totalAssists / p.gamesPlayed).toFixed(1))
+        }));
+
+        const topScorers = [...playersArray].sort((a, b) => b.pointsPerGame - a.pointsPerGame).slice(0, 10);
+        const topRebounders = [...playersArray].sort((a, b) => b.reboundsPerGame - a.reboundsPerGame).slice(0, 10);
+        const topAssists = [...playersArray].sort((a, b) => b.assistsPerGame - a.assistsPerGame).slice(0, 10);
+
+        res.json({
+            topScorers,
+            topRebounders,
+            topAssists
+        });
+
+    } catch (error) {
+        console.error('Error obteniendo líderes del torneo:', error);
+        res.status(500).json({ error: 'Error al obtener los líderes' });
+    }
+});
+
+// Generar Playoffs Inteligente: Cuartos -> Semis -> Final
+app.post('/api/tournaments/:id/playoffs', authenticateToken, async (req, res) => {
+    try {
+        const { id: tournamentId } = req.params;
+
+        // Validar si el torneo existe y si el usuario es el organizador
+        const tournament = await prisma.tournament.findUnique({
+            where: { id: tournamentId }
+        });
+
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+        if (tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Acceso denegado. Solo el organizador puede generar los playoffs.' });
+        }
+
+        // Obtener todos los partidos de eliminatoria (no REGULAR)
+        const playoffMatches = await prisma.match.findMany({
+            where: { tournamentId, stage: { not: 'REGULAR' } },
+            orderBy: { createdAt: 'asc' }
+        });
+
+        const cuartos = playoffMatches.filter(m => m.stage === 'CUARTOS');
+        const semis = playoffMatches.filter(m => m.stage === 'SEMIFINAL');
+        const finales = playoffMatches.filter(m => m.stage === 'FINAL');
+
+        if (finales.length > 0) {
+            return res.status(400).json({ error: 'La fase final ya fue generada por completo.' });
+        }
+
+        // REGLA 3: Generar Final
+        if (semis.length === 2 && finales.length === 0) {
+            if (semis.some(m => m.status !== 'FINISHED')) {
+                return res.status(400).json({ error: 'Deben finalizar todas las Semifinales para avanzar a la Final.' });
+            }
+            const win1 = semis[0].homeScore > semis[0].awayScore ? semis[0].homeTeamId : semis[0].awayTeamId;
+            const win2 = semis[1].homeScore > semis[1].awayScore ? semis[1].homeTeamId : semis[1].awayTeamId;
+
+            const matchDate = new Date();
+            matchDate.setDate(matchDate.getDate() + 7);
+
+            const finalMatch = await prisma.match.create({
+                data: {
+                    tournamentId,
+                    homeTeamId: win1,
+                    awayTeamId: win2,
+                    matchDate,
+                    stage: 'FINAL'
+                }
+            });
+            return res.status(201).json({ message: 'Final generada exitosamente', stage: 'FINAL' });
+        }
+
+        // REGLA 2: Generar Semis
+        if (cuartos.length === 4 && semis.length === 0) {
+            if (cuartos.some(m => m.status !== 'FINISHED')) {
+                return res.status(400).json({ error: 'Deben finalizar todos los Cuartos de Final para avanzar a Semifinales.' });
+            }
+            const win1 = cuartos[0].homeScore > cuartos[0].awayScore ? cuartos[0].homeTeamId : cuartos[0].awayTeamId;
+            const win2 = cuartos[1].homeScore > cuartos[1].awayScore ? cuartos[1].homeTeamId : cuartos[1].awayTeamId;
+            const win3 = cuartos[2].homeScore > cuartos[2].awayScore ? cuartos[2].homeTeamId : cuartos[2].awayTeamId;
+            const win4 = cuartos[3].homeScore > cuartos[3].awayScore ? cuartos[3].homeTeamId : cuartos[3].awayTeamId;
+
+            const matchDate1 = new Date(); matchDate1.setDate(matchDate1.getDate() + 7);
+            const matchDate2 = new Date(matchDate1); matchDate2.setHours(matchDate1.getHours() + 2);
+
+            await prisma.match.create({
+                data: { tournamentId, homeTeamId: win1, awayTeamId: win2, matchDate: matchDate1, stage: 'SEMIFINAL' }
+            });
+            await prisma.match.create({
+                data: { tournamentId, homeTeamId: win3, awayTeamId: win4, matchDate: matchDate2, stage: 'SEMIFINAL' }
+            });
+            return res.status(201).json({ message: 'Semifinales generadas exitosamente', stage: 'SEMIFINAL' });
+        }
+
+        // REGLA 1: Generar Cuartos
+        if (cuartos.length === 0) {
+            // Obtener equipos inscritos
+            const enrollments = await prisma.tournamentEnrollment.findMany({
+                where: { tournamentId },
+                include: { team: true }
+            });
+
+            const teams = enrollments.map(e => e.team);
+
+            // Obtener partidos FINISHED en fase REGULAR para standings
+            const matches = await prisma.match.findMany({
+                where: { tournamentId, status: 'FINISHED', stage: 'REGULAR' }
+            });
+
+            // Inicializar standings
+            const standings = teams.map(team => ({ teamId: team.id, pj: 0, g: 0, p: 0, pf: 0, pc: 0, diff: 0 }));
+
+            // Calcular estadísticas
+            matches.forEach(match => {
+                const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
+                const awayTeam = standings.find(s => s.teamId === match.awayTeamId);
+
+                if (homeTeam && awayTeam) {
+                    homeTeam.pj += 1; homeTeam.pf += match.homeScore; homeTeam.pc += match.awayScore;
+                    awayTeam.pj += 1; awayTeam.pf += match.awayScore; awayTeam.pc += match.homeScore;
+                    if (match.homeScore > match.awayScore) { homeTeam.g += 1; awayTeam.p += 1; } 
+                    else if (match.awayScore > match.homeScore) { awayTeam.g += 1; homeTeam.p += 1; }
+                }
+            });
+
+            // Calcular diferencia y ordenar
+            standings.forEach(s => { s.diff = s.pf - s.pc; });
+            standings.sort((a, b) => {
+                if (b.g !== a.g) return b.g - a.g;
+                return b.diff - a.diff;
+            });
+
+            const activeTeams = standings.filter(s => s.pj > 0);
+
+            if (activeTeams.length < 8) {
+                return res.status(400).json({ error: 'Se necesitan al menos 8 equipos con partidos jugados para generar los cuartos de final.' });
+            }
+
+            const top8 = activeTeams.slice(0, 8);
+            const matchDate = new Date();
+            matchDate.setDate(matchDate.getDate() + 7);
+
+            // Llave 1 (1ro vs 8vo), Llave 2 (4to vs 5to), Llave 3 (2do vs 7mo) y Llave 4 (3ro vs 6to)
+            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[0].teamId, awayTeamId: top8[7].teamId, matchDate, stage: 'CUARTOS' }});
+            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[3].teamId, awayTeamId: top8[4].teamId, matchDate, stage: 'CUARTOS' }});
+            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[1].teamId, awayTeamId: top8[6].teamId, matchDate, stage: 'CUARTOS' }});
+            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[2].teamId, awayTeamId: top8[5].teamId, matchDate, stage: 'CUARTOS' }});
+
+            return res.status(201).json({ message: 'Cuartos de final generados exitosamente', stage: 'CUARTOS' });
+        }
+
+        return res.status(400).json({ error: 'Estado de playoffs inválido o fuera de flujo.' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al generar los playoffs' });
+    }
+});
+
+// Endpoint público para obtener los líderes de la liga (Estadísticas globales)
+app.get('/api/stats/leaders', async (req, res) => {
+    try {
+        const allStats = await prisma.playerStat.findMany({
+            include: {
+                player: {
+                    include: {
+                        team: true
+                    }
+                }
+            }
+        });
+
+        const playerMap = {};
+
+        // Agrupar y sumar
+        allStats.forEach(stat => {
+            const pId = stat.playerId;
+            if (!playerMap[pId]) {
+                playerMap[pId] = {
+                    id: pId,
+                    name: stat.player.name,
+                    teamId: stat.player.team.id,
+                    teamName: stat.player.team.name,
+                    logoUrl: stat.player.team.logoUrl,
+                    games: 0,
+                    points: 0,
+                    rebounds: 0,
+                    assists: 0,
+                    minutesPlayed: 0
+                };
+            }
+            playerMap[pId].games += 1;
+            playerMap[pId].points += stat.points;
+            playerMap[pId].rebounds += stat.rebounds;
+            playerMap[pId].assists += stat.assists;
+            playerMap[pId].minutesPlayed += stat.minutesPlayed;
+        });
+
+        // Calcular promedios
+        const aggregated = Object.values(playerMap).map(p => ({
+            ...p,
+            ppg: parseFloat((p.points / p.games).toFixed(1)),
+            rpg: parseFloat((p.rebounds / p.games).toFixed(1)),
+            apg: parseFloat((p.assists / p.games).toFixed(1))
+        }));
+
+        // Seleccionar los Top 10 por categoría
+        const topScorers = [...aggregated].sort((a, b) => b.ppg - a.ppg).slice(0, 10);
+        const topRebounders = [...aggregated].sort((a, b) => b.rpg - a.rpg).slice(0, 10);
+        const topAssists = [...aggregated].sort((a, b) => b.apg - a.apg).slice(0, 10);
+
+        res.status(200).json({ topScorers, topRebounders, topAssists });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al obtener líderes de la liga' });
+    }
+});
+
+// Actualizar pago de inscripción (Control de Pagos)
+app.put('/api/enrollments/:id/payment', authenticateToken, async (req, res) => {
+    try {
+        const { amountPaid } = req.body;
+        const enrollmentId = req.params.id;
+
+        // Verificar si el usuario actual es el organizador de este torneo
+        const enrollment = await prisma.tournamentEnrollment.findUnique({
+            where: { id: enrollmentId },
+            include: { tournament: true }
+        });
+
+        if (!enrollment) return res.status(404).json({ error: 'Inscripción no encontrada' });
+
+        if (enrollment.tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'No autorizado para editar inscripciones de este torneo' });
+        }
+
+        const updated = await prisma.tournamentEnrollment.update({
+            where: { id: enrollmentId },
+            data: { amountPaid: parseInt(amountPaid, 10) || 0 }
+        });
+        
+// Obtener un partido específico con sus equipos y jugadores
+app.get('/api/matches/:id', async (req, res) => {
+  try {
+    const match = await prisma.match.findUnique({
+      where: { id: req.params.id },
+      include: {
+        homeTeam: { 
+          include: { players: true } 
+        },
+        awayTeam: { 
+          include: { players: true } 
+        },
+        tournament: true
+      }
+    });
+
+    if (!match) {
+      return res.status(404).json({ error: "Partido no encontrado" });
+    }
+
+    res.json(match);
+  } catch (error) {
+    console.error("Error obteniendo el partido:", error);
+    res.status(500).json({ error: "Error interno del servidor" });
+  }
+});
+
+        res.status(200).json(updated);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al actualizar el pago' });
+    }
+});
+
+app.get('/api/players/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const player = await prisma.player.findUnique({
+            where: { id },
+            include: {
+                team: true,
+                stats: {
+                    include: {
+                        match: {
+                            include: {
+                                homeTeam: true,
+                                awayTeam: true,
+                                tournament: true
+                            }
+                        }
+                    },
+                    orderBy: {
+                        match: {
+                            matchDate: 'desc'
+                        }
+                    }
+                }
+            }
+        });
+
+        if (!player) {
+            return res.status(404).json({ error: 'Jugador no encontrado' });
+        }
+
+        // Calculate averages
+        const totalMatches = player.stats.length;
+        let totalPoints = 0;
+        let totalRebounds = 0;
+        let totalAssists = 0;
+
+        player.stats.forEach(stat => {
+            totalPoints += stat.points;
+            totalRebounds += stat.rebounds;
+            totalAssists += stat.assists;
+        });
+
+        const averages = {
+            ppg: totalMatches > 0 ? (totalPoints / totalMatches).toFixed(1) : 0,
+            rpg: totalMatches > 0 ? (totalRebounds / totalMatches).toFixed(1) : 0,
+            apg: totalMatches > 0 ? (totalAssists / totalMatches).toFixed(1) : 0,
+        };
+
+        res.json({ player, averages });
+    } catch (error) {
+        console.error("Error fetching player profile:", error);
+        res.status(500).json({ error: 'Error del servidor al obtener el perfil del jugador' });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Aplicación escuchando en http://localhost:${port}`);
+});
