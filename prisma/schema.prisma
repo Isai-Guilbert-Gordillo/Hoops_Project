@@ -8,7 +8,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -27,6 +27,7 @@ model User {
   firstName    String
   lastName     String
   role         String       @default("PLAYER")
+  phoneNumber  String?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
@@ -45,7 +46,8 @@ model Team {
   captainId String
   captain   User     @relation(fields: [captainId], references: [id])
   
-  players   Player[]
+  playerCount Int      @default(0)
+  players     Player[]
   enrollments TournamentEnrollment[]
   
   homeMatches Match[] @relation("HomeMatches")
@@ -118,9 +120,11 @@ model TournamentEnrollment {
   teamId       String
   team         Team       @relation(fields: [teamId], references: [id])
   
-  amountPaid   Int        @default(0)
-  status       String     @default("APPROVED") // PENDIENTE, APROBADA, RECHAZADA
-  createdAt    DateTime   @default(now())
+  amountPaid    Int        @default(0)
+  paymentStatus String     @default("PENDING")
+  paymentDate   DateTime?
+  status        String     @default("APPROVED")
+  createdAt     DateTime   @default(now())
 }
 
 model Match {

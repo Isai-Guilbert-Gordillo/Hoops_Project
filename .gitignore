@@ -3,3 +3,8 @@ node_modules
 .env
 
 /generated/prisma
+
+# SQLite quedó reemplazado por Postgres; estos archivos ya no se usan
+dev.db
+prisma/dev.db
+prisma/dev.db-journal
