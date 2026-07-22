@@ -3,9 +3,10 @@
   "configurations": [
     {
       "name": "proyectokp",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["start"],
-      "port": 3000
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["index.js"],
+      "port": 3000,
+      "autoPort": true
     }
   ]
 }
