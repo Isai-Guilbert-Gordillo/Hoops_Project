@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: "Panel de Administración - Retro Hoops", pageCss: "/css/admin.css" }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container">
+        <h1 class="page-title fade-in-up" style="margin-bottom: 0.5rem;">PANEL DE <span>ADMINISTRACIÓN</span></h1>
+        <p style="color: var(--text-muted); margin-bottom: 2rem;">Gestiona quién tiene rol de administrador en Retro Hoops. Un admin puede editar o eliminar cualquier torneo, franquicia o jugador, sin importar quién lo haya creado.</p>
+
+        <div id="access-denied">
+            <p>🔒 Esta sección está reservada para administradores.</p>
+        </div>
+
+        <div class="card reveal" id="users-card">
+            <div class="table-wrap">
+                <table class="kp-table">
+                    <thead>
+                        <tr>
+                            <th>Usuario</th>
+                            <th>Rol</th>
+                            <th style="text-align: right;">Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-body">
+                        <tr><td colspan="3" style="text-align: center; color: var(--text-muted);">Cargando usuarios...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/confirm-modal.js"></script>
+    <script src="/js/admin.js"></script>
+</body>
+</html>

@@ -17,6 +17,14 @@
     --cyan-glow: rgba(0, 240, 255, 0.4);
     --gold: #ffd700;
 
+    /* Colores semánticos de estado. --danger centraliza el rojo que ya usaba
+       .btn-danger; --live es un verde-menta neón para el estado "En vivo"
+       (único color nuevo, encaja con la paleta synthwave). */
+    --danger: #ff3b3b;
+    --danger-glow: rgba(255, 59, 59, 0.4);
+    --live: #2be5a6;
+    --live-glow: rgba(43, 229, 166, 0.45);
+
     --bg-dark: #0a0714;
     --bg-darker: #050309;
     --card-bg: #150f24;
@@ -37,20 +45,96 @@
 
 html { scroll-behavior: smooth; }
 
+/* ==========================================================================
+   Transiciones suaves entre PÁGINAS (View Transitions API — multipágina).
+   Suaviza el "corte" seco al navegar entre vistas (Inicio, Ligas, Franquicias…).
+   Mejora progresiva: Chromium la aplica en navegaciones del mismo origen; los
+   navegadores sin soporte navegan como siempre, sin errores ni bloqueos.
+   ========================================================================== */
+@view-transition {
+    navigation: auto;
+}
+
+/* La vista saliente se desvanece; la entrante aparece con un leve ascenso
+   (se siente dinámico, acorde al diseño, sin marear). */
+/* Habilitamos la API */
+@view-transition {
+  navigation: auto;
+}
+
+/* La página que sale se desvanece y se hace un 2% más pequeña (se hunde) */
+@keyframes app-fade-out {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(0.98); }
+}
+
+/* La página que entra aparece desde el fondo y crece a su tamaño normal */
+@keyframes app-fade-in {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* Aplicamos las animaciones con una curva de aceleración muy suave (0.25s es el punto dulce) */
+::view-transition-old(root) {
+  animation: app-fade-out 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+::view-transition-new(root) {
+  animation: app-fade-in 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
 body {
     font-family: var(--font-body);
     margin: 0;
     background-color: var(--bg-dark);
     color: var(--text-main);
     min-height: 100vh;
+    /* Atmósfera synthwave: resplandores de esquina + un glow de horizonte que
+       sube desde abajo (donde arranca la rejilla en perspectiva) + una rejilla
+       plana muy tenue que da textura. La rejilla en movimiento va en body::after. */
     background-image:
         radial-gradient(ellipse 900px 500px at 15% -10%, rgba(255, 106, 0, 0.16), transparent 60%),
         radial-gradient(ellipse 900px 500px at 100% 0%, rgba(0, 240, 255, 0.12), transparent 60%),
-        linear-gradient(rgba(255, 255, 255, 0.025) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
-    background-size: auto, auto, 30px 30px, 30px 30px;
+        radial-gradient(ellipse 140% 46% at 50% 112%, rgba(255, 46, 159, 0.20), transparent 62%),
+        linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+    background-size: auto, auto, auto, 30px 30px, 30px 30px;
+    background-attachment: fixed;
     position: relative;
     overflow-x: hidden;
+    /* Layout de "footer pegajoso": el body ocupa al menos el alto de la ventana y
+       el footer (con margin-top: auto) se ancla abajo, así páginas con poco
+       contenido no dejan un océano de negro entre el contenido y el pie. */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Rejilla en perspectiva que se desplaza lento hacia el espectador ("piso"
+   synthwave). Va detrás del contenido (z-index -1); las tarjetas tienen su
+   propio fondo, así que la rejilla asoma por los huecos. */
+body::after {
+    content: '';
+    position: fixed;
+    left: -25%;
+    bottom: 0;
+    width: 150%;
+    height: 55vh;
+    pointer-events: none;
+    z-index: -1;
+    background-image:
+        linear-gradient(rgba(0, 240, 255, 0.30) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0, 240, 255, 0.22) 1px, transparent 1px);
+    background-size: 48px 48px;
+    transform: perspective(320px) rotateX(62deg);
+    transform-origin: bottom center;
+    -webkit-mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 78%);
+    mask-image: linear-gradient(to top, rgba(0, 0, 0, 0.9) 0%, transparent 78%);
+    animation: grid-scroll 9s linear infinite;
+}
+
+@keyframes grid-scroll {
+    from { background-position: 0 0; }
+    to { background-position: 0 48px; }
 }
 
 /* Efecto CRT / scanlines sutil sobre toda la página */
@@ -112,6 +196,15 @@ header {
     letter-spacing: -1px;
     white-space: nowrap;
     flex-shrink: 0;
+    /* Flicker de neón MUY sutil y lento (el brillo apenas parpadea). */
+    animation: neon-flicker 6s steps(1) infinite;
+}
+
+@keyframes neon-flicker {
+    0%, 100%   { text-shadow: 3px 3px 0 rgba(0, 240, 255, 0.5), 0 0 10px rgba(255, 106, 0, 0.35); }
+    41%, 43%   { text-shadow: 3px 3px 0 rgba(0, 240, 255, 0.5), 0 0 4px rgba(255, 106, 0, 0.15); }
+    42%        { text-shadow: 3px 3px 0 rgba(0, 240, 255, 0.35), 0 0 2px rgba(255, 106, 0, 0.08); }
+    88%, 90%   { text-shadow: 3px 3px 0 rgba(0, 240, 255, 0.5), 0 0 6px rgba(255, 106, 0, 0.2); }
 }
 
 /* Envoltorio de las 3 zonas del header: ocupa todo el espacio restante
@@ -255,8 +348,8 @@ nav.main-nav a.active::after {
     gap: 0.4rem;
 }
 
-.btn:hover { transform: scale(1.05); box-shadow: 0 0 20px var(--orange-glow); }
-.btn:active { transform: scale(0.97); }
+.btn:hover { transform: translateY(-2px) scale(1.04); box-shadow: 0 6px 22px var(--orange-glow); }
+.btn:active { transform: translateY(0) scale(0.97); transition-duration: 0.05s; }
 .btn:hover .btn-content { background-color: var(--orange); color: var(--bg-darker); }
 
 .btn.btn-cyan { color: var(--cyan-accent); border-color: var(--cyan-accent); box-shadow: 0 0 10px var(--cyan-glow); }
@@ -377,6 +470,11 @@ nav.main-nav a.active::after {
 
 .hero h1, h1.page-title {
     font-family: var(--font-arcade);
+    /* Títulos SIEMPRE en mayúsculas: los nombres vienen de datos del usuario
+       (p. ej. "liga hermandad") y en minúsculas Press Start 2P se ve como si
+       fuera otra fuente. Forzar mayúsculas unifica la jerarquía tipográfica:
+       fuente pixel = títulos/marca, siempre en caja alta. */
+    text-transform: uppercase;
     font-size: clamp(1.4rem, 4vw, 2.4rem);
     line-height: 1.6;
     margin-bottom: 1rem;
@@ -509,6 +607,20 @@ h2.section-title {
 
 .torneo-card:hover::before, .card:hover::before { transform: scaleX(1); }
 
+/* Feedback al hacer clic en una tarjeta (se "hunde" un poco). */
+.torneo-card:active, .card:active { transform: translateY(-2px) scale(0.995); transition-duration: 0.05s; }
+
+/* Utilidad reutilizable de micro-interacción para tarjetas que NO usan .card
+   (p. ej. .franquicia-card, .match-card, filas de usuarios): elevación + brillo
+   al pasar el mouse y un leve hundimiento al hacer clic. */
+.hover-lift { transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition); }
+.hover-lift:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 30px rgba(0, 0, 0, 0.55), 0 0 25px rgba(123, 47, 247, 0.18);
+    border-color: rgba(255, 106, 0, 0.35);
+}
+.hover-lift:active { transform: translateY(-2px) scale(0.995); transition-duration: 0.05s; }
+
 .torneo-card h3, .card h3 { font-size: 1.4rem; margin: 0.5rem 0; color: var(--text-main); }
 .torneo-card p, .card p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; }
 
@@ -524,6 +636,20 @@ h2.section-title {
 }
 
 .status-live, .badge-cyan { background: rgba(0, 240, 255, 0.1); color: var(--cyan-accent); border: 1px solid var(--cyan-accent); animation: pulse-glow 2s ease-in-out infinite; }
+
+/* Punto "EN VIVO" que late dentro de la etiqueta de partido en juego. */
+.status-live::before {
+    content: '';
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    margin-right: 7px;
+    border-radius: 50%;
+    background: var(--cyan-accent);
+    box-shadow: 0 0 0 0 rgba(0, 240, 255, 0.7);
+    animation: live-pulse 1.8s ease-out infinite;
+    vertical-align: middle;
+}
 .status-open, .badge-orange { background: rgba(255, 106, 0, 0.1); color: var(--orange); border: 1px solid var(--orange); }
 .status-ended, .badge-muted { background: rgba(167, 159, 194, 0.1); color: var(--text-muted); border: 1px solid var(--text-muted); }
 .badge-gold { background: rgba(255, 215, 0, 0.1); color: var(--gold); border: 1px solid var(--gold); }
@@ -704,6 +830,31 @@ table.kp-table tbody tr:hover { background: rgba(123, 47, 247, 0.1); }
 .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.6s ease, transform 0.6s ease; }
 .reveal.in-view { opacity: 1; transform: translateY(0); }
 
+/* Entrada escalonada: nav.js aplica un transition-delay creciente a los .reveal
+   que comparten un mismo padre, para que la lista se "arme" en secuencia. */
+
+/* Punto "EN VIVO" que late — para partidos/datos activos. Úsalo como
+   <span class="live-dot"></span> o junto a una etiqueta. */
+.live-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #ff2e5e;
+    box-shadow: 0 0 0 0 rgba(255, 46, 94, 0.7);
+    animation: live-pulse 1.8s ease-out infinite;
+    vertical-align: middle;
+}
+
+@keyframes live-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(255, 46, 94, 0.6); }
+    70%  { box-shadow: 0 0 0 8px rgba(255, 46, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(255, 46, 94, 0); }
+}
+
+/* Números que "cuentan" al cargar: tabular para que no bailen los dígitos. */
+.count-up { font-variant-numeric: tabular-nums; }
+
 .fade-in-up { animation: fade-in-up 0.6s ease both; }
 @keyframes fade-in-up {
     from { opacity: 0; transform: translateY(20px); }
@@ -726,7 +877,38 @@ table.kp-table tbody tr:hover { background: rgba(123, 47, 247, 0.1); }
     border-radius: 6px;
     color: transparent !important;
 }
+
 @keyframes shimmer { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+
+.landing-hero {
+    display: flex;
+    flex-direction: row; /* Pone los elementos lado a lado */
+    align-items: center; /* Los alinea verticalmente al centro */
+    justify-content: space-between; /* Empuja un div a la izquierda y otro a la derecha */
+    gap: 4rem; /* Un buen espacio para que el minijuego y el texto no choquen */
+    width: 100%;
+}
+
+/* Opcional: Asegurar que cada columna tome la mitad del espacio */
+   .hero-game {
+    width: 50%;
+    display: flex;
+    justify-content: center; /* Lo centra horizontalmente en su mitad */
+    align-items: center;
+    padding: 2rem; /* Le da un margen de seguridad para que no toque los bordes */
+}
+    /* =========================================
+    Ajustes de tamaño para el minijuego
+    ========================================= */
+    .arcade-cabinet {
+        transform: scale(1.6); /* Ajusta este número: 1.4, 1.6 o 1.8 según te guste */
+        transform-origin: center;
+    }
+
+    /* Fuerza al navegador a mantener la estética 8-bits definida */
+    #ag-canvas {
+        image-rendering: pixelated; 
+    }
 
 /* ==========================================================================
    Footer
@@ -734,8 +916,8 @@ table.kp-table tbody tr:hover { background: rgba(123, 47, 247, 0.1); }
 
 footer.site-footer {
     border-top: 2px solid var(--orange);
-    margin-top: 4rem;
-    padding: 2.5rem 1.5rem 1.5rem;
+    margin-top: auto; /* empuja el footer al fondo en páginas cortas */
+    padding: 1.5rem 1.5rem 1.25rem;
     text-align: center;
     color: #9ca3af;
     background: rgba(5, 3, 9, 0.6);
@@ -746,12 +928,12 @@ footer.site-footer .footer-logo {
     color: var(--orange);
     font-size: 1rem;
     text-shadow: 2px 2px 0 rgba(0, 240, 255, 0.5);
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     display: inline-block;
 }
 
 footer.site-footer p { margin: 0.3rem 0; font-size: 0.9rem; letter-spacing: 0.05em; }
-footer.site-footer .footer-links { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin: 1rem 0; }
+footer.site-footer .footer-links { display: flex; gap: 1.5rem; justify-content: center; flex-wrap: wrap; margin: 0.6rem 0; }
 footer.site-footer .footer-links a { color: #9ca3af; text-decoration: none; font-size: 0.9rem; letter-spacing: 0.05em; transition: color var(--transition); }
 footer.site-footer .footer-links a:hover { color: var(--cyan-accent); }
 

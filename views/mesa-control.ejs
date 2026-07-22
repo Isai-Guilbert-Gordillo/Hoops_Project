@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: "Mesa de Control - KP Analytics", pageCss: '/css/mesa-control.css' }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="scoreboard-bar">
+        <div class="scoreboard">
+            <div class="team-score home">
+                <div class="team-name" id="home-name">LOCAL</div>
+                <div class="score-number" id="home-score-display">0</div>
+                <div class="team-fouls">FALTAS: <span id="home-fouls-display">0</span></div>
+            </div>
+
+            <div class="clock-section">
+                <div class="quarter-badge" id="quarter-display" onclick="nextQuarter()">Q1</div>
+                <div class="clock-time" id="clock-display">10:00</div>
+                <div class="clock-controls">
+                    <button class="btn btn-cyan" id="btn-start" onclick="startClock()"><span class="btn-content">▶ START</span></button>
+                    <button class="btn btn-danger" id="btn-pause" onclick="pauseClock()"><span class="btn-content">⏸ PAUSE</span></button>
+                </div>
+                <button class="btn btn-solid-gold btn-sm" id="btn-undo-point" onclick="undoLastPoint()" disabled>
+                    <span class="btn-content">↩ ANULAR PUNTO</span>
+                </button>
+            </div>
+
+            <div class="team-score away">
+                <div class="team-name" id="away-name">VISITANTE</div>
+                <div class="score-number" id="away-score-display">0</div>
+                <div class="team-fouls">FALTAS: <span id="away-fouls-display">0</span></div>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <div class="roster-panel" id="home-roster">
+            <!-- Rosters inyectados aquí -->
+        </div>
+        <div class="roster-panel" id="away-roster">
+            <!-- Rosters inyectados aquí -->
+        </div>
+    </main>
+
+    <footer class="control-footer">
+        <button class="btn btn-danger btn-scoreboard" onclick="finishMatchAndSave()"><span class="btn-content">TERMINAR PARTIDO Y GUARDAR</span></button>
+    </footer>
+
+    <!-- Script de Toast Externo -->
+
+    <script src="/js/nav.js"></script>
+    <script src="/confirm-modal.js"></script>
+    <script src="/js/mesa-control.js"></script>
+</body>
+</html>

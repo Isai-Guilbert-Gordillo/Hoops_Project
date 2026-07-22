@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: "Crear Franquicia - Retro Hoops", pageCss: "/css/crear-equipo.css" }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container-narrow container-wide fade-in-up">
+        <h1 class="page-title">CREAR <span>FRANQUICIA</span></h1>
+
+        <!-- Se muestra si ya alcanzaste límite -->
+        <div id="limit-reached" style="display: none; text-align: center;">
+            <p style="color: var(--text-muted);">Ya tienes una franquicia registrada. El plan actual permite un máximo de <strong style="color: var(--text-main);">1 franquicia por capitán</strong>.</p>
+            <a href="/franquicias.html" class="btn btn-cyan" style="margin-top: 1rem;"><span class="btn-content">Ver mi Franquicia</span></a>
+        </div>
+
+        <form id="createTeamForm" style="display: none;">
+            <!-- PARTE 1: DATOS DEL EQUIPO -->
+            <div class="form-group">
+                <label for="name">Nombre de la Franquicia *</label>
+                <input type="text" id="name" name="name" required placeholder="Ej. Los Monstars">
+            </div>
+
+            <div class="form-group" style="display: flex; align-items: center; gap: 1rem;">
+                <div style="flex: 1;">
+                    <label for="logoFile">Logo de la Franquicia (Opcional)</label>
+                    <input type="file" id="logoFile" name="logoFile" accept="image/*">
+                </div>
+                <div class="team-logo-preview" id="logoPreview" style="display: none;"></div>
+            </div>
+
+            <div class="info-box">
+                ℹ️ Primero crea tu franquicia y luego agrega los jugadores del equipo.
+            </div>
+
+            <button type="submit" class="btn-submit">Crear Franquicia</button>
+            <div id="formMessage" class=""></div>
+        </form>
+
+        <!-- PARTE 2: AGREGAR JUGADORES (aparece después de crear equipo) -->
+        <div id="playersSection" class="players-section" style="display: none;">
+            <h2>👥 Añade Jugadores a tu Franquicia</h2>
+            
+            <div class="info-box">
+                ℹ️ Completa los datos de cada jugador y presiona "Agregar Jugador". Puedes agregar y eliminar jugadores antes de guardar el equipo.
+            </div>
+
+            <div class="players-layout">
+            <div class="add-player-form">
+                <div class="form-group">
+                    <label for="playerName">Nombre *</label>
+                    <input type="text" id="playerName" placeholder="Ej. Juan Pérez" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="playerNumber">Dorsal (Número) *</label>
+                    <input type="number" id="playerNumber" min="0" max="99" placeholder="23" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="playerPosition">Posición *</label>
+                    <select id="playerPosition" required>
+                        <option value="" disabled selected>Selecciona posición</option>
+                        <option value="Base">Base (PG)</option>
+                        <option value="Escolta">Escolta (SG)</option>
+                        <option value="Alero">Alero (SF)</option>
+                        <option value="Ala-Pívot">Ala-Pívot (PF)</option>
+                        <option value="Pívot">Pívot (C)</option>
+                    </select>
+                </div>
+
+                <div class="form-group" style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="flex: 1;">
+                        <label for="playerPhoto">Foto (Opcional)</label>
+                        <input type="file" id="playerPhoto" accept="image/*">
+                    </div>
+                    <div class="player-photo-preview" id="playerPhotoPreview" style="display: none;"></div>
+                </div>
+
+                <button type="button" id="btnAddPlayer" class="btn-add-player">+ Agregar</button>
+            </div>
+
+            <!-- Tabla de jugadores agregados -->
+            <div class="table-scroll">
+                <table class="players-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nombre</th>
+                            <th>Dorsal</th>
+                            <th>Posición</th>
+                            <th>Acción</th>
+                        </tr>
+                    </thead>
+                    <tbody id="playersTableBody">
+                        <tr>
+                            <td colspan="5" class="empty-players">Sin jugadores agregados aún</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            </div>
+
+            <!-- Botones finales -->
+            <div class="form-actions">
+                <button type="button" id="btnSaveTeam" class="btn-submit">💾 Guardar</button>
+                <button type="button" id="btnCancel" class="btn-cancel">Cancelar</button>
+            </div>
+            <div id="savingMessage" class=""></div>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/confirm-modal.js"></script>
+    <script src="/js/crear-equipo.js"></script>
+</body>
+</html>

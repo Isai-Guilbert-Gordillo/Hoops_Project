@@ -1,0 +1,157 @@
+/* RETRO HOOPS · equipo — estilos de página (extraídos del <style> inline; base en theme.css). */
+
+        /* Elementos únicos de esta página no cubiertos por theme.css */
+        .team-hero {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+        }
+
+        .team-logo-hero {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-color: var(--card-bg-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 3px solid var(--cyan-accent);
+            overflow: hidden;
+            flex-shrink: 0;
+            font-family: var(--font-arcade);
+            color: var(--text-muted);
+            font-size: 2rem;
+        }
+
+        .team-logo-hero img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .team-details h1 {
+            margin: 0 0 1rem 0;
+        }
+
+        .team-details p {
+            margin: 0.5rem 0;
+            font-size: 1.2rem;
+            color: var(--text-muted);
+        }
+
+        .team-details span.captain {
+            color: var(--cyan-accent);
+            font-weight: bold;
+        }
+
+        td.jersey {
+            font-family: var(--font-arcade);
+            color: var(--cyan-accent);
+            font-size: 1.1rem;
+        }
+
+        /* Foto del jugador (opcional): avatar circular pequeño en la fila
+           del roster, con placeholder "?" cuando no hay foto cargada. */
+        .player-photo {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background-color: var(--card-bg-2);
+            border: 2px solid var(--orange);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            flex-shrink: 0;
+            font-family: var(--font-arcade);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+
+        .player-photo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .player-cell {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* ADD PLAYER FORM (Captains only) */
+        .add-player-wrapper {
+            display: none; /* Oculto por defecto */
+        }
+
+        .add-player-wrapper h3 {
+            margin-top: 0;
+            color: var(--orange);
+        }
+
+        .form-row {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+            margin-bottom: 0;
+        }
+
+        .message-box {
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        @media (max-width: 640px) {
+            .team-hero { flex-direction: column; text-align: center; }
+        }
+
+        .tournament-enroll-card {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 1rem 1.2rem;
+        }
+
+        .tournament-enroll-card h3 {
+            margin: 0;
+            color: var(--orange);
+            font-size: 1rem;
+            text-transform: uppercase;
+        }
+
+        .tournament-enroll-card p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .tournament-enroll-card .btn-submit {
+            margin-top: 0.5rem;
+            width: auto;
+            align-self: flex-start;
+            padding: 0.6rem 1.2rem;
+        }
+
+        .tournament-enrolled-badge {
+            padding: 0.9rem 1.2rem;
+            border-left: 3px solid var(--cyan-accent);
+        }
+
+        .tournament-enrolled-badge h3 {
+            margin: 0 0 0.2rem 0;
+            color: var(--cyan-accent);
+            font-size: 0.95rem;
+        }
+
+        .tournament-enrolled-badge p {
+            margin: 0;
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head> <meta name="view-transition" content="same-origin" />
+    <%- include('partials/head', { title: "Inicio - Retro Hoops", pageCss: "/css/index.css" }) %>
+</head>
+<body class="landing">
+
+    <%- include('partials/header') %>
+
+    <main class="landing-main">
+
+        <!-- ============================================================
+             HERO (queda sticky detrás; el .stage sube sobre él)
+             ============================================================ -->
+        <section class="hero-layer">
+            <div class="wrap">
+                <div class="hero-unit">
+                    <!-- COLUMNA IZQUIERDA: copy -->
+                    <div class="hero__copy">
+                        <span class="eyebrow" data-anim style="animation-delay:0ms">Plataforma para ligas de básquetbol</span>
+                        <h1>
+                            <span class="line" data-anim style="animation-delay:80ms">Gestiona</span>
+                            <span class="line" data-anim style="animation-delay:160ms">tu liga</span>
+                            <span class="line" data-anim style="animation-delay:240ms">como <span class="accent">pro.</span></span>
+                        </h1>
+                        <p class="lead" data-anim style="animation-delay:340ms">
+                            Inscripciones, rosters, estadísticas en vivo y brackets de eliminación
+                            en un solo tablero. Adiós a las hojas de cálculo y los grupos de WhatsApp.
+                        </p>
+                        <div class="hero-cta" data-anim style="animation-delay:420ms">
+                            <a href="#" class="hero-unlock-btn is-locked" id="cta-register" role="button" aria-disabled="true">
+                                <span id="cta-text">Anota 3 para registrar</span>
+                                <svg class="lock-ico" id="cta-lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+                            </a>
+                            <p class="hero-progress" id="cta-note">Encesta en la cancha de la derecha para desbloquear tu registro con código.</p>
+                            <span class="hero-code" id="cta-code"></span>
+                        </div>
+                    </div>
+
+                    <!-- COLUMNA DERECHA: cabina arcade jugable (elemento firma) -->
+                    <div class="hero__panel" id="hoops-arcade" aria-label="Mini-juego de tiro a canasta" data-anim style="animation-delay:200ms">
+                        <div class="arcade-cabinet">
+                            <div class="arcade-scoreboard">
+                                <span class="ag-title">RETRO HOOPS</span>
+                                <div class="ag-scorebox">
+                                    <span class="ag-score" id="ag-score">0</span>
+                                    <span class="ag-pts">PTS</span>
+                                </div>
+                                <button type="button" class="ag-mute" id="ag-mute" aria-label="Silenciar sonido" aria-pressed="false"></button>
+                            </div>
+                            <div class="ag-streak" id="ag-streak"></div>
+                            <div class="arcade-stage">
+                                <canvas id="ag-canvas" width="400" height="300"></canvas>
+                                <div class="ag-hint" id="ag-hint">ARRASTRA Y LANZA</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================
+             STAGE — bloque que sube sobre el hero (esquinas redondeadas)
+             ============================================================ -->
+        <div class="stage">
+
+            <!-- BENEFICIOS -->
+            <section class="section" id="beneficios">
+                <div class="wrap">
+                    <p class="eyebrow">Beneficios clave</p>
+                    <h2 class="h-pixel rise">Beneficios</h2>
+                    <div class="grid-cards" data-stagger>
+                        <article class="rh-card rise">
+                            <p class="card__kicker">Tiempo real</p>
+                            <h3 class="card__title">Estadísticas en vivo</h3>
+                            <p class="card__text">Marcadores, rendimiento y avance competitivo con una vista clara para equipos, capitanes y organizadores.</p>
+                            <span class="card__accent">Control total</span>
+                        </article>
+                        <article class="rh-card rise">
+                            <p class="card__kicker">Roster e identidad</p>
+                            <h3 class="card__title">Gestión de franquicias</h3>
+                            <p class="card__text">Administra equipos, planteles y perfiles desde un solo lugar, con un flujo ordenado y fácil de operar.</p>
+                            <span class="card__accent">Más organización</span>
+                        </article>
+                        <article class="rh-card rise">
+                            <p class="card__kicker">Formato competitivo</p>
+                            <h3 class="card__title">Generación de brackets</h3>
+                            <p class="card__text">Cuadros de eliminación y fases de torneo con una estructura visual clara para playoffs y etapas decisivas.</p>
+                            <span class="card__accent">Llave lista</span>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CÓMO FUNCIONA — pizarra de jugadas -->
+            <section class="section" id="como-funciona">
+                <div class="wrap">
+                    <p class="eyebrow">Cómo funciona</p>
+                    <h2 class="h-pixel rise">3 Jugadas</h2>
+                    <div class="grid-cards plays" data-stagger>
+                        <article class="rh-card play rise">
+                            <span class="play__num">01</span>
+                            <h3 class="card__title">Crea tu liga</h3>
+                            <p class="card__text">Define formato, cupos y reglas en minutos. Sin hojas de cálculo ni fricción.</p>
+                        </article>
+                        <article class="rh-card play rise">
+                            <span class="play__num">02</span>
+                            <h3 class="card__title">Inscribe equipos</h3>
+                            <p class="card__text">Cada franquicia registra su plantel e identidad con un flujo claro y guiado.</p>
+                        </article>
+                        <article class="rh-card play rise">
+                            <span class="play__num">03</span>
+                            <h3 class="card__title">Compite en vivo</h3>
+                            <p class="card__text">Marcadores, estadísticas y brackets en tiempo real para toda la competencia.</p>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <!-- MARCADOR — cifras tipo tablero de gimnasio -->
+            <section class="section" id="marcador">
+                <div class="wrap">
+                    <p class="eyebrow">Datos de la temporada</p>
+                    <h2 class="h-pixel rise">El Marcador</h2>
+                    <div class="board rise">
+                        <div class="board__head">
+                            <span>Marcador · Temporada 2026</span>
+                            <span class="board__live">En vivo</span>
+                        </div>
+                        <div class="board__row" data-stagger>
+                            <div class="board__cell rise">
+                                <div class="stat__num"><span data-count="24">0</span></div>
+                                <div class="stat__label">Ligas activas</div>
+                            </div>
+                            <div class="board__cell rise">
+                                <div class="stat__num"><span data-count="320">0</span></div>
+                                <div class="stat__label">Equipos</div>
+                            </div>
+                            <div class="board__cell rise">
+                                <div class="stat__num"><span data-count="1580">0</span></div>
+                                <div class="stat__label">Partidos</div>
+                            </div>
+                            <div class="board__cell rise">
+                                <div class="stat__num"><span data-count="99.9">0</span><span class="stat__suffix">%</span></div>
+                                <div class="stat__label">Disponibilidad</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- CTA FINAL — última posesión -->
+            <section class="section cta-final" id="cta-final">
+                <div class="wrap">
+                    <div class="cta-final__box">
+                        <p class="eyebrow">Última posesión</p>
+                        <h2 class="h-pixel rise" style="margin-bottom:1rem;">Al Tablero</h2>
+                        <p class="lead rise">Registra tu liga hoy y opera inscripciones, rosters y brackets desde un solo lugar. Gratis para empezar.</p>
+                        <a class="btn-action rise" href="/registro.html">Crear mi liga</a>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/js/index.js"></script>
+</body>
+</html>

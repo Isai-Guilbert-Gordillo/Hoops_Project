@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: "Torneo - Retro Hoops", pageCss: "/css/torneo.css" }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container">
+        <!-- Error global -->
+        <div id="error-message" style="color: var(--orange); display: none; text-align: center; margin: 3rem 0; font-size: 1.2rem;"></div>
+
+        <!-- Detalles del Torneo -->
+        <div class="hero fade-in-up" id="tournament-hero" style="display: none;">
+            <h1 id="tournament-name" class="page-title">Cargando...</h1>
+            <div class="hero-details">
+                <div><strong>Formato</strong> <span id="tournament-category"></span></div>
+                <div><strong>Sede</strong> <span id="tournament-venue"></span></div>
+                <div><strong>Inicio</strong> <span id="tournament-date"></span></div>
+                <div><strong>Límite Franquicias</strong> <span id="tournament-max"></span></div>
+            </div>
+        </div>
+
+        <!-- Navegación por secciones: panel lateral (estilo "ajustes de torneo"), pensado
+             para que cualquier persona -sin experiencia técnica- encuentre cada tarea
+             (inscribir equipos, programar partidos, ver resultados) en un solo clic,
+             sin tener que hacer scroll por una página larga. -->
+        <div class="tournament-layout">
+            <aside class="tournament-sidebar reveal" id="tournament-sidebar" aria-label="Secciones del torneo">
+                <button type="button" class="side-tab active" data-tab="franquicias">
+                    <span class="side-tab-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/><path d="M5.6 5.6a12 12 0 0 0 0 12.8M18.4 5.6a12 12 0 0 1 0 12.8"/></svg>
+                    </span>
+                    <span class="side-tab-text">
+                        <span class="side-tab-label">Franquicias</span>
+                        <span class="side-tab-hint">Ver e inscribir equipos</span>
+                    </span>
+                </button>
+                <button type="button" class="side-tab" data-tab="calendario">
+                    <span class="side-tab-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+                    </span>
+                    <span class="side-tab-text">
+                        <span class="side-tab-label">Calendario</span>
+                        <span class="side-tab-hint">Partidos y horarios</span>
+                    </span>
+                </button>
+                <button type="button" class="side-tab" data-tab="posiciones">
+                    <span class="side-tab-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M6 21V11M12 21V6M18 21v-7"/></svg>
+                    </span>
+                    <span class="side-tab-text">
+                        <span class="side-tab-label">Posiciones</span>
+                        <span class="side-tab-hint">Tabla general</span>
+                    </span>
+                </button>
+                <button type="button" class="side-tab" data-tab="playoffs">
+                    <span class="side-tab-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 4h12v5a6 6 0 0 1-12 0V4z"/><path d="M6 6H3v2a3 3 0 0 0 3 3M18 6h3v2a3 3 0 0 1-3 3"/><path d="M12 15v3M9 21h6M10 18h4"/></svg>
+                    </span>
+                    <span class="side-tab-text">
+                        <span class="side-tab-label">Playoffs</span>
+                        <span class="side-tab-hint">Fase eliminatoria</span>
+                    </span>
+                </button>
+            </aside>
+
+            <div class="tournament-content">
+                <!-- Panel: Franquicias -->
+                <div class="tab-panel active" data-panel="franquicias">
+                    <p class="tab-hint">Aquí ves qué equipos ya están inscritos en el torneo y puedes agregar el tuyo.</p>
+                    <h2 class="section-header reveal" style="display: none;" id="teams-header">Franquicias Inscritas</h2>
+                    <div class="grid reveal" id="teams-container" style="display: none;">
+                        <!-- Equipos inscritos aparecerán aquí -->
+                    </div>
+                    <div id="no-teams-msg" class="empty-state reveal" style="display: none;">
+                        <div class="empty-state-icon">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18"/><path d="M5.6 5.6a12 12 0 0 0 0 12.8M18.4 5.6a12 12 0 0 1 0 12.8"/></svg>
+                        </div>
+                        <h3 class="empty-state-title">Aún no hay franquicias inscritas</h3>
+                        <p class="empty-state-text" id="empty-state-text">Sé el primero en unirte a este torneo.</p>
+                        <a id="empty-enroll-cta" class="btn" style="display: none;"><span class="btn-content"></span></a>
+                    </div>
+
+                    <!-- Inscripción de Equipo (Aparece si está logueado y NO es el organizador, es decir, es un capitán que puede inscribir su franquicia) -->
+                    <div class="enrollment-wrapper reveal" id="enrollment-section" style="display: none; margin-bottom: 3rem;">
+                        <h3>Inscribe a tu Franquicia</h3>
+                        <form id="enrollForm" class="enroll-form">
+                            <select id="franchise-select" required>
+                                <option value="" disabled selected>Selecciona tu franquicia...</option>
+                            </select>
+                            <button type="submit" class="btn-submit">Inscribirse al Torneo</button>
+                        </form>
+                        <div id="form-msg" class="message-box"></div>
+                    </div>
+                </div>
+
+                <!-- Panel: Calendario -->
+                <div class="tab-panel" data-panel="calendario">
+                    <p class="tab-hint">Si eres el organizador, agenda un nuevo partido arriba. Debajo, el calendario completo.</p>
+                    <!-- Organizador: Programar Partido (arriba, para que el organizador
+                         agende sin tener que bajar tras toda la lista de partidos) -->
+                    <div class="organizer-wrapper reveal" id="organizer-section" style="display: none;">
+                        <h3 style="margin-bottom: 1.5rem;">Programar Nuevo Partido</h3>
+                        <form id="matchForm" class="match-form">
+                            <div class="match-field">
+                                <label for="homeTeamSelect">Equipo local</label>
+                                <select id="homeTeamSelect" required>
+                                    <option value="" disabled selected>Selecciona…</option>
+                                </select>
+                            </div>
+                            <div class="match-field">
+                                <label for="awayTeamSelect">Equipo visitante</label>
+                                <select id="awayTeamSelect" required>
+                                    <option value="" disabled selected>Selecciona…</option>
+                                </select>
+                            </div>
+
+                            <!-- Selector de fecha y hora propio (calendario + hora), en lugar
+                                 del <input type="datetime-local"> nativo que se ve distinto en
+                                 cada navegador y rompe la estética. Escribe el valor en el input
+                                 oculto #matchDate con el mismo formato (YYYY-MM-DDTHH:mm) que ya
+                                 espera el backend, así el resto del flujo no cambia. -->
+                            <div class="match-field">
+                                <label>Fecha y hora</label>
+                                <div class="dt-field">
+                                    <button type="button" class="dt-trigger" id="dt-trigger" aria-haspopup="dialog" aria-expanded="false">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+                                        <span id="dt-trigger-text" class="placeholder">Elegir fecha y hora</span>
+                                    </button>
+                                    <input type="hidden" id="matchDate">
+                                    <div class="dt-popover" id="dt-popover" hidden role="dialog" aria-label="Selecciona fecha y hora">
+                                        <div class="dt-cal-header">
+                                            <button type="button" class="dt-nav" id="dt-prev" aria-label="Mes anterior">‹</button>
+                                            <span class="dt-month-label" id="dt-month-label"></span>
+                                            <button type="button" class="dt-nav" id="dt-next" aria-label="Mes siguiente">›</button>
+                                        </div>
+                                        <div class="dt-weekdays">
+                                            <span>Lu</span><span>Ma</span><span>Mi</span><span>Ju</span><span>Vi</span><span>Sá</span><span>Do</span>
+                                        </div>
+                                        <div class="dt-days" id="dt-days"></div>
+                                        <div class="dt-time-row">
+                                            <span class="dt-time-label">Hora</span>
+                                            <select id="dt-hour" class="dt-time-select" aria-label="Hora"></select>
+                                            <span class="dt-colon">:</span>
+                                            <select id="dt-min" class="dt-time-select" aria-label="Minutos"></select>
+                                        </div>
+                                        <div class="dt-popover-actions">
+                                            <button type="button" class="dt-clear" id="dt-clear">Limpiar</button>
+                                            <button type="button" class="dt-confirm" id="dt-confirm">Confirmar</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="match-field match-submit-field">
+                                <button type="submit" class="btn-submit">Guardar Partido</button>
+                            </div>
+                        </form>
+                        <div id="matchMessage" class="message-box" style="display: none;"></div>
+                    </div>
+
+                    <h2 class="section-header reveal" style="display: none;" id="matches-header">Calendario de Partidos</h2>
+
+                    <!-- Selector de sección: por jugar vs. ya jugados -->
+                    <div class="match-tabs" id="match-tabs" style="display: none;">
+                        <button type="button" class="match-tab active" data-filter="upcoming">
+                            Por jugar <span class="match-tab-count" id="count-upcoming">0</span>
+                        </button>
+                        <button type="button" class="match-tab" data-filter="played">
+                            Jugados <span class="match-tab-count" id="count-played">0</span>
+                        </button>
+                    </div>
+
+                    <div class="matches-grid reveal" id="matches-container" style="display: none;">
+                        <!-- Partidos aparecerán aquí -->
+                    </div>
+                    <p id="no-matches-msg" style="display: none; color: var(--text-muted); text-align: center; margin-bottom: 3rem;">Aún no hay partidos programados.</p>
+                    <p id="no-matches-filter-msg" style="display: none; color: var(--text-muted); text-align: center; margin-bottom: 3rem;"></p>
+                </div>
+
+                <!-- Panel: Posiciones -->
+                <div class="tab-panel" data-panel="posiciones">
+                    <p class="tab-hint">La tabla se actualiza sola conforme se van jugando y guardando partidos.</p>
+                    <h2 class="section-header reveal" style="display: none;" id="standings-header">Tabla de Posiciones</h2>
+                    <div class="table-wrap reveal" style="margin-bottom: 3rem; display: none;" id="standings-container">
+                        <table class="retro-table kp-table" id="standings-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Franquicia</th>
+                                    <th>PJ</th>
+                                    <th>G</th>
+                                    <th>P</th>
+                                    <th>PF</th>
+                                    <th>PC</th>
+                                    <th>DIFF</th>
+                                </tr>
+                            </thead>
+                            <tbody id="standings-body">
+                                <!-- Filas de posiciones aparecerán aquí -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Panel: Playoffs -->
+                <div class="tab-panel" data-panel="playoffs">
+                    <p class="tab-hint" id="playoffs-hint">Cuando termine la fase regular, el organizador puede generar los Cuartos de Final desde aquí. A partir de ahí, cada ronda avanza sola en cuanto se registran todos sus resultados.</p>
+                    <div style="margin-bottom: 1.5rem; display: flex; flex-wrap: wrap; gap: 0.75rem;">
+                        <button id="btn-generate-playoffs" class="btn btn-cyan" style="display: none;">
+                            <span class="btn-content">🏆 GENERAR CUARTOS DE FINAL</span>
+                        </button>
+                        <button id="btn-reset-season" class="btn btn-danger" style="display: none;">
+                            <span class="btn-content">🔄 REINICIAR TEMPORADA</span>
+                        </button>
+                    </div>
+                    <h2 class="section-header reveal" style="display: none;" id="playoffs-header">Playoffs</h2>
+                    <div class="bracket-container reveal" id="bracket-container" style="display: none;">
+                        <div class="bracket-column" id="col-cuartos">
+                            <div class="bracket-column-title">Cuartos<span class="bracket-column-count" id="count-cuartos"></span></div>
+                            <div class="bracket-column-matches"><!-- bracket-match here --></div>
+                        </div>
+                        <div class="bracket-connector" aria-hidden="true">›</div>
+                        <div class="bracket-column" id="col-semis">
+                            <div class="bracket-column-title">Semifinal<span class="bracket-column-count" id="count-semis"></span></div>
+                            <div class="bracket-column-matches"><!-- bracket-match here --></div>
+                        </div>
+                        <div class="bracket-connector" aria-hidden="true">›</div>
+                        <div class="bracket-column" id="col-final">
+                            <div class="bracket-column-title">Gran Final<span class="bracket-column-count" id="count-final"></span></div>
+                            <div class="bracket-column-matches"><!-- bracket-match here --></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Box Score -->
+    <div class="modal-overlay" id="stats-modal">
+        <div class="modal-content">
+            <button class="modal-close" id="close-stats-modal">&times;</button>
+            <h2 class="section-header" style="font-size: 1rem; border: none; text-align: center;">Estadísticas del Partido</h2>
+            <div id="stats-form-container"></div>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/confirm-modal.js"></script>
+    <script src="/js/torneo.js"></script>
+</body>
+</html>

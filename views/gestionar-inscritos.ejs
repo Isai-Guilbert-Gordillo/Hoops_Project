@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: "Gestionar Inscritos - Retro Hoops" }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container-narrow">
+        <h1 class="page-title fade-in-up">Gestión de <span>Inscritos</span></h1>
+        <h3 id="tournament-name" class="page-subtitle fade-in-up" style="text-align:center;">Cargando torneo...</h3>
+
+        <div class="table-wrap reveal">
+            <table class="kp-table">
+                <thead>
+                    <tr>
+                        <th>Equipo</th>
+                        <th>Estado</th>
+                        <th>Fecha de Registro</th>
+                        <th>Acción</th>
+                    </tr>
+                </thead>
+                <tbody id="enrollments-body">
+                    <tr><td colspan="4" style="text-align: center; color: var(--text-muted);">Cargando equipos...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/confirm-modal.js"></script>
+    <script src="/js/gestionar-inscritos.js"></script>
+</body>
+</html>

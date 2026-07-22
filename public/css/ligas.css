@@ -1,0 +1,249 @@
+/* ==========================================================================
+   RETRO HOOPS · Ligas — estilos específicos de la página.
+   (Extraído del <style> inline; la paleta/base viven en theme.css.)
+   ========================================================================== */
+
+    /* ================================================================
+       RETRO HOOPS · Ligas — mismo sistema de tokens que Landing.
+       naranja=acción · cian=dato · ámbar=logro/estado
+       ================================================================ */
+
+    :root {
+        /* Alias a la paleta synthwave del theme (theme.css), la misma del
+           resto del sitio. naranja=acción · cian=dato · oro=logro/estado. */
+        --ink:      var(--bg-dark);            /* #0a0714 fondo */
+        --ink-2:    var(--card-bg);            /* #150f24 superficie */
+        --ink-3:    var(--card-bg-2);          /* #1b1330 tarjeta */
+        --line:     rgba(123, 47, 247, 0.30);  /* borde/divisor morado sutil */
+        --ball:     var(--orange);             /* #ff6a00 acción */
+        --board:    var(--cyan-accent);        /* #00f0ff dato */
+        --buzzer:   var(--gold);               /* #ffd700 logro/estado */
+        --text:     var(--text-main);
+        --text-dim: var(--text-muted);
+        /* --danger se hereda de theme.css (#ff3b3b) */
+
+        --ball-glow:   color-mix(in srgb, var(--ball)   45%, transparent);
+        --board-glow:  color-mix(in srgb, var(--board)  45%, transparent);
+        --buzzer-glow: color-mix(in srgb, var(--buzzer) 45%, transparent);
+        --shade:       color-mix(in srgb, var(--ink) 72%, transparent);
+
+        --font-display: var(--font-arcade);   /* Press Start 2P — titulares y logo */
+        --font-data:    var(--font-body);     /* Outfit — cifras, etiquetas, botones */
+        --font-read:    var(--font-body);     /* Outfit — lectura corrida */
+
+        --fs-display: clamp(1.55rem, 0.9rem + 3.1vw, 3rem);
+        --fs-h2:      clamp(1.125rem, 0.95rem + 0.9vw, 1.6rem);
+        --fs-lead:    clamp(1rem, 0.95rem + 0.4vw, 1.18rem);
+        --fs-body:    clamp(0.95rem, 0.9rem + 0.2vw, 1.05rem);
+        --fs-label:   clamp(0.75rem, 0.7rem + 0.18vw, 0.85rem);
+        --fs-title:   clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem);
+
+        --maxw:    1320px;
+        --pad-x:   clamp(1.1rem, 0.5rem + 3vw, 3rem);
+        --section: clamp(3rem, 2rem + 5vw, 6rem);
+        --gap:     clamp(1rem, 0.6rem + 1.4vw, 1.6rem);
+        --radius:    14px;
+        --radius-sm: 8px;
+
+        --ease: cubic-bezier(.16, .84, .3, 1);
+    }
+
+    html { overflow-x: hidden; }
+
+    /* La página hereda el fondo, las scanlines CRT, la rejilla en perspectiva y
+       todo el "chrome" (header, nav, botones, footer, scrollbar) de theme.css
+       —los mismos del resto del sitio (Franquicias, Inicio…)—. No se reinician
+       ni se sobrescriben: así el formato y los colores son los originales.
+       Solo fijamos texto y fuente base sobre esa herencia. */
+    body.ligas {
+        color: var(--text);
+        font-family: var(--font-read);
+    }
+
+    body.ligas a:focus-visible,
+    body.ligas button:focus-visible {
+        outline: 2px solid var(--board); outline-offset: 3px; border-radius: var(--radius-sm);
+    }
+
+    /* Layout base */
+    .wrap { width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: var(--pad-x); }
+
+    .eyebrow {
+        display: inline-flex; align-items: center; gap: 0.6rem;
+        font-family: var(--font-data); font-size: var(--fs-label);
+        letter-spacing: 0.16em; text-transform: uppercase; color: var(--board); margin: 0;
+    }
+    .eyebrow::before { content: ''; width: 20px; height: 2px; background: var(--ball); box-shadow: 0 0 10px var(--ball-glow); }
+
+    .h-pixel {
+        font-family: var(--font-display); font-size: var(--fs-h2);
+        line-height: 1.42; text-transform: uppercase;
+        color: var(--text); margin: 0;
+        text-shadow: 3px 3px 0 color-mix(in srgb, var(--board) 20%, transparent);
+    }
+
+    /* Hero compacto — todo el contenido útil visible sin scroll a 900px */
+    .lg-hero {
+        padding-block: clamp(2rem, 1.5rem + 2vw, 3.5rem) clamp(1.2rem, 0.8rem + 1vw, 2rem);
+        text-align: left;
+    }
+    .lg-h1 {
+        font-family: var(--font-arcade); /* Cambiado de --font-display a --font-arcade */
+        font-size: var(--fs-display);
+        line-height: 1.28; text-transform: uppercase; letter-spacing: -0.5px;
+        color: var(--text); margin: 0.7rem 0 0;
+        text-shadow: 4px 4px 0 color-mix(in srgb, var(--board) 22%, transparent);
+    }
+    .lg-h1 .accent { color: var(--ball); }
+    .lead {
+        font-family: var(--font-read); font-size: var(--fs-lead);
+        line-height: 1.65; color: var(--text-dim); max-width: 52ch; margin: 0.9rem 0 0;
+    }
+
+    /* Barra de controles */
+    .lg-controls { padding-block: clamp(0.8rem, 0.5rem + 0.8vw, 1.2rem) 0; }
+    .lg-controls__inner {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 1rem; flex-wrap: wrap;
+    }
+
+    /* Filtros — misma superficie que rh-card (mismo fondo, borde, radio) */
+    .lg-filters-wrap { padding-block: clamp(0.8rem, 0.5rem + 0.8vw, 1.1rem); }
+    .lg-filters {
+        display: flex; gap: var(--gap); flex-wrap: wrap; align-items: center;
+        background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius);
+        padding: 0.75rem 1rem;
+    }
+    .lg-filters input[type="text"],
+    .lg-filters select {
+        flex: 1 1 160px; min-width: 0;
+        background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius-sm);
+        color: var(--text); font-family: var(--font-data); font-size: var(--fs-label);
+        padding: 0.5rem 0.75rem; outline: none;
+        transition: border-color 0.2s;
+    }
+    .lg-filters input[type="text"]::placeholder { color: var(--text-dim); }
+    .lg-filters input[type="text"]:focus,
+    .lg-filters select:focus { border-color: var(--board); }
+    .lg-filters select option { background: var(--ink-2); }
+
+    /* Grid de torneos: auto-fit con mínimo 300px */
+    .lg-section { padding-block: clamp(1.2rem, 0.8rem + 1.5vw, 2.5rem) clamp(3rem, 2rem + 5vw, 6rem); }
+    .torneos-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+        gap: var(--gap);
+    }
+
+    /* Tarjeta de liga — mismo sistema que rh-card */
+    .lg-card {
+        container-type: inline-size;
+        position: relative; overflow: hidden;
+        background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius);
+        display: flex; flex-direction: column;
+        transition: transform 0.4s var(--ease), border-color 0.4s var(--ease);
+    }
+    .lg-card::before {
+        content: ''; position: absolute; left: 0; top: 0; height: 3px; width: 100%;
+        transform: scaleX(0); transform-origin: left;
+        background: var(--ball); box-shadow: 0 0 12px var(--ball-glow);
+        transition: transform 0.4s var(--ease);
+    }
+    .lg-card:hover { transform: translateY(-6px); border-color: var(--ball); }
+    .lg-card:hover::before { transform: scaleX(1); }
+
+    .lg-card__body {
+        padding: clamp(1.1rem, 0.9rem + 0.8vw, 1.6rem);
+        cursor: pointer; flex: 1;
+    }
+    .lg-card__name {
+        font-family: var(--font-read); font-weight: 600; font-size: var(--fs-title);
+        text-transform: uppercase; letter-spacing: 0.02em;
+        color: var(--text); margin: 0.6rem 0 0;
+    }
+    .lg-card__meta {
+        margin: 0.85rem 0 0; display: grid; gap: 0.35rem;
+        font-size: var(--fs-label);
+    }
+    .lg-card__meta div { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .lg-card__meta dt { font-family: var(--font-data); color: var(--text-dim); font-weight: 400; }
+    .lg-card__meta dd { margin: 0; font-family: var(--font-data); color: var(--text); font-weight: 700; }
+
+    /* Badges de estado */
+    .lg-status {
+        display: inline-block; font-family: var(--font-data); font-size: 0.72rem;
+        letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700;
+        padding: 0.25rem 0.55rem; border-radius: var(--radius-sm); margin-bottom: 0.5rem;
+    }
+    .status-open  { color: var(--board);   border: 1px solid color-mix(in srgb, var(--board)   40%, transparent); background: color-mix(in srgb, var(--board)   12%, transparent); }
+    .status-live  { color: var(--buzzer);  border: 1px solid color-mix(in srgb, var(--buzzer)  40%, transparent); background: color-mix(in srgb, var(--buzzer)  12%, transparent); }
+    .status-ended { color: var(--text-dim); border: 1px solid color-mix(in srgb, var(--text-dim) 30%, transparent); background: color-mix(in srgb, var(--text-dim) 10%, transparent); }
+
+    /* Zona de botones admin */
+    .lg-card__actions {
+        display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+        border-top: 1px solid var(--line);
+        padding: 0.7rem clamp(1.1rem, 0.9rem + 0.8vw, 1.6rem);
+    }
+    .lg-card__btns { display: flex; gap: 0.5rem; }
+
+    /* PRIMARIO — naranja balón, texto oscuro */
+    .lg-btn-primary {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        font-family: var(--font-data); font-weight: 700; font-size: 0.8rem;
+        letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
+        padding: 0.7rem 1.2rem; border-radius: var(--radius-sm);
+        background: var(--ball); color: var(--ink); border: 1px solid var(--ball);
+        box-shadow: 0 0 14px var(--ball-glow);
+        transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+        cursor: pointer;
+    }
+    .lg-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 22px var(--ball-glow); }
+    .lg-btn-primary.lg-btn-sm { padding: 0.42rem 0.8rem; font-size: 0.72rem; box-shadow: none; }
+    .lg-btn-primary.lg-btn-sm:hover { box-shadow: 0 4px 14px var(--ball-glow); }
+
+    /* SECUNDARIO — fantasma, borde --line */
+    .lg-btn-secondary {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        font-family: var(--font-data); font-weight: 400; font-size: 0.8rem;
+        letter-spacing: 0.05em; text-transform: uppercase; text-decoration: none;
+        padding: 0.7rem 1.2rem; border-radius: var(--radius-sm);
+        background: transparent; color: var(--text-dim); border: 1px solid var(--line);
+        transition: border-color 0.2s, color 0.2s;
+        cursor: pointer;
+    }
+    .lg-btn-secondary:hover { border-color: var(--text-dim); color: var(--text); }
+    .lg-btn-secondary.lg-btn-sm { padding: 0.42rem 0.8rem; font-size: 0.72rem; }
+
+    /* DESTRUCTIVO — solo texto, sin relleno ni borde, rojo derivado */
+    .lg-btn-danger {
+        display: inline-flex; align-items: center;
+        font-family: var(--font-data); font-weight: 400; font-size: 0.72rem;
+        letter-spacing: 0.05em; text-transform: uppercase; text-decoration: none;
+        padding: 0.42rem 0.5rem;
+        background: transparent; color: var(--danger); border: none;
+        transition: opacity 0.2s;
+        cursor: pointer;
+    }
+    .lg-btn-danger:hover { opacity: 0.7; }
+
+    /* Reveal al scroll */
+    .rise { opacity: 0; transform: translateY(20px); transition: opacity 0.6s var(--ease), transform 0.6s var(--ease); }
+    .rise.is-in { opacity: 1; transform: none; }
+
+    /* Modal — override de colores sobre los estilos de theme.css */
+    body.ligas .modal-overlay { background: color-mix(in srgb, var(--ink) 80%, transparent); }
+    body.ligas .modal-box { background: var(--ink-2); border: 1px solid var(--line); border-radius: var(--radius); color: var(--text); }
+    body.ligas .modal-title { font-family: var(--font-data); color: var(--text); }
+    body.ligas .modal-close-btn { color: var(--text-dim); background: transparent; border: none; font-size: 1.4rem; cursor: pointer; }
+    body.ligas .modal-close-btn:hover { color: var(--text); }
+    body.ligas .form-group label { font-family: var(--font-data); font-size: var(--fs-label); letter-spacing: 0.05em; color: var(--text-dim); }
+    body.ligas .form-group input { background: var(--ink-3); border: 1px solid var(--line); color: var(--text); font-family: var(--font-read); border-radius: var(--radius-sm); padding: 0.55rem 0.8rem; }
+    body.ligas .form-group input:focus { border-color: var(--board); outline: none; }
+    body.ligas .btn-submit { background: var(--ball); color: var(--ink); font-family: var(--font-data); font-weight: 700; border: none; border-radius: var(--radius-sm); padding: 0.7rem 1.2rem; cursor: pointer; }
+    body.ligas .btn-submit:hover { opacity: 0.9; }
+
+    @media (prefers-reduced-motion: reduce) {
+        .rise { opacity: 1; transform: none; transition: none; }
+        .lg-card:hover, .lg-btn-primary:hover { transform: none; }
+    }

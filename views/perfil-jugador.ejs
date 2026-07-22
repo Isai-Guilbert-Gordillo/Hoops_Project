@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: "Perfil del Jugador - Retro Hoops", pageCss: "/css/perfil-jugador.css" }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container" id="main-content" style="display: none;">
+
+        <!-- Hero Section -->
+        <div class="hero player-hero fade-in-up">
+            <h1 id="player-name">Cargando...</h1>
+            <h3 id="player-position">Cargando...</h3>
+
+            <a href="#" id="team-link" class="team-link">
+                <div id="team-logo-container"></div>
+                <span id="team-name">Cargando equipo...</span>
+            </a>
+        </div>
+
+        <!-- Promedios -->
+        <div class="stats-grid cards-grid reveal">
+            <div class="stat-card card">
+                <div class="stat-value" id="stat-ppg">0.0</div>
+                <div class="stat-label">PPG (Pts)</div>
+            </div>
+            <div class="stat-card card">
+                <div class="stat-value" id="stat-rpg" style="color: var(--cyan-accent);">0.0</div>
+                <div class="stat-label">RPG (Reb)</div>
+            </div>
+            <div class="stat-card card">
+                <div class="stat-value" id="stat-apg" style="color: var(--gold);">0.0</div>
+                <div class="stat-label">APG (Ast)</div>
+            </div>
+        </div>
+
+        <!-- Game Log -->
+        <h2 class="section-title reveal">Game Log</h2>
+        <div class="table-wrap reveal">
+            <table class="kp-table">
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Oponente</th>
+                        <th>Resultado</th>
+                        <th>MIN</th>
+                        <th>PTS</th>
+                        <th>REB</th>
+                        <th>AST</th>
+                    </tr>
+                </thead>
+                <tbody id="gamelog-body">
+                    <!-- Logs will be populated here -->
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+    <div id="loading-indicator">CARGANDO DATOS...</div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/js/perfil-jugador.js"></script>
+</body>
+</html>

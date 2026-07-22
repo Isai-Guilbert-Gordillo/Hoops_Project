@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: "Franquicias - Retro Hoops", pageCss: "/css/franquicias.css" }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container">
+        <h1 class="page-title fade-in-up" style="margin-bottom: 1.5rem;">DIRECTORIO DE <span>FRANQUICIAS</span></h1>
+
+        <!-- ============ CAPA 1: BARRA DE STATS ============ -->
+        <div class="stats-bar reveal">
+            <div class="stat-card">
+                <div class="stat-icon is-teams">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/></svg>
+                </div>
+                <div class="stat-text">
+                    <span class="stat-number" id="stat-teams">0</span>
+                    <span class="stat-label">Franquicias</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon is-players">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                </div>
+                <div class="stat-text">
+                    <span class="stat-number" id="stat-players">0</span>
+                    <span class="stat-label">Jugadores</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon is-matches">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3v18M3 12h18M5.6 5.6a12 12 0 0 0 0 12.8M18.4 5.6a12 12 0 0 1 0 12.8"/></svg>
+                </div>
+                <div class="stat-text">
+                    <span class="stat-number" id="stat-matches">0</span>
+                    <span class="stat-label">Partidos</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon is-leagues">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4zM17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/></svg>
+                </div>
+                <div class="stat-text">
+                    <span class="stat-number" id="stat-leagues">0</span>
+                    <span class="stat-label">Ligas activas</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filtro de liga: SIEMPRE visible (incluso sin sesión), para no mezclar
+             franquicias de todas las ligas en un solo directorio gigante.
+             El filtro de propiedad ("Mis franquicias") solo aparece con sesión. -->
+        <div id="franq-toolbar" class="franq-toolbar" style="display:flex; flex-wrap:wrap; gap:0.75rem; margin:0 0 1.5rem;">
+            <select id="filter-league-teams" style="background:var(--surface,#1a1830); color:var(--text,#fff); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:.6rem 1rem; font-family:var(--font-data,inherit); cursor:pointer;">
+                <option value="all">Todas las ligas</option>
+            </select>
+            <select id="filter-owner-teams" style="display:none; background:var(--surface,#1a1830); color:var(--text,#fff); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:.6rem 1rem; font-family:var(--font-data,inherit); cursor:pointer;">
+                <option value="mine">Mis franquicias</option>
+                <option value="all">Todas las franquicias</option>
+            </select>
+        </div>
+
+        <!-- ============ CAPA 2: GRID DE FRANQUICIAS ============ -->
+        <div class="cards-grid reveal" id="teams-container">
+            <p style="color: var(--text-muted); grid-column: 1 / -1;">Cargando franquicias...</p>
+        </div>
+
+        <!-- ============ CAPA 3: PRÓXIMOS PARTIDOS ============ -->
+        <section class="upcoming-section reveal">
+            <h2 class="upcoming-title">Próximos Partidos</h2>
+            <div id="upcoming-container">
+                <p class="upcoming-empty">Cargando partidos...</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Modal editar franquicia -->
+    <div class="modal-overlay" id="edit-team-modal" style="display: none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 class="modal-title">Editar Franquicia</h3>
+                <button type="button" class="modal-close-btn" id="edit-team-close" aria-label="Cerrar">&times;</button>
+            </div>
+            <form id="edit-team-form">
+                <div class="form-group">
+                    <label for="edit-team-name">Nombre de la Franquicia</label>
+                    <input type="text" id="edit-team-name" required>
+                </div>
+                <div class="form-group" style="display: flex; align-items: center; gap: 1rem;">
+                    <div style="flex: 1;">
+                        <label for="edit-team-logo">Logo de la Franquicia (opcional)</label>
+                        <input type="file" id="edit-team-logo" accept="image/*">
+                    </div>
+                    <div class="team-logo" id="edit-team-logo-preview"></div>
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-submit">Guardar Cambios</button>
+                    <button type="button" class="btn btn-ghost" id="edit-team-cancel"><span class="btn-content">Cancelar</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/confirm-modal.js"></script>
+    <script src="/js/franquicias.js"></script>
+</body>
+</html>

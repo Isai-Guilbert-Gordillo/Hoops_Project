@@ -1,0 +1,107 @@
+/* RETRO HOOPS · perfil-jugador — estilos de página (extraídos del <style> inline; base en theme.css). */
+
+        /* Delta visual específico de perfil de jugador (no cubierto por theme.css) */
+        .player-hero {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .player-hero h3 {
+            color: var(--cyan-accent);
+            font-size: 1.2rem;
+            margin: 0 0 1rem 0;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-family: var(--font-body);
+            font-weight: 700;
+        }
+
+        .team-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-darker);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            border: 1px solid var(--orange);
+            color: var(--text-main);
+            text-decoration: none;
+            font-family: var(--font-arcade);
+            font-size: 0.8rem;
+            transition: all var(--transition);
+        }
+
+        .team-link:hover {
+            background: rgba(255, 106, 0, 0.1);
+            color: var(--cyan-accent);
+        }
+
+        .team-logo-small {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: var(--card-bg-2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .stat-card {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: var(--font-arcade);
+            font-size: 2.5rem;
+            color: var(--orange);
+            margin-bottom: 0.5rem;
+            text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.8);
+        }
+
+        .stat-label {
+            color: var(--text-muted);
+            text-transform: uppercase;
+            font-weight: 800;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+        }
+
+        .result-win {
+            color: #4ade80;
+            font-weight: bold;
+        }
+
+        .result-loss {
+            color: #f87171;
+            font-weight: bold;
+        }
+
+        #loading-indicator {
+            text-align: center;
+            padding: 4rem;
+            font-family: var(--font-arcade);
+            color: var(--cyan-accent);
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 0.5; }
+            50% { opacity: 1; text-shadow: 0 0 10px var(--cyan-accent); }
+            100% { opacity: 0.5; }
+        }
+
+        @media (max-width: 768px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }

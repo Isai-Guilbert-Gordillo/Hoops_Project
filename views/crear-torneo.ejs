@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: 'Crear Torneo - Retro Hoops' }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container-narrow fade-in-up">
+        <h1 class="page-title">NUEVO <span>TORNEO</span></h1>
+
+        <!-- Se muestra en vez del formulario si ya alcanzaste el límite de
+             torneos del plan actual (evita llenar el formulario en vano). -->
+        <div id="limit-reached" style="display: none; text-align: center;">
+            <p style="color: var(--text-muted);">Ya tienes el máximo de torneos activos como organizador. El plan actual permite hasta <strong style="color: var(--text-main);">4 torneos</strong>.</p>
+            <a href="/ligas.html" class="btn btn-cyan" style="margin-top: 1rem;"><span class="btn-content">Ver mis Torneos</span></a>
+        </div>
+
+        <form action="/api/torneos" method="POST">
+            <div class="form-group">
+                <label for="nombre">Nombre del Torneo *</label>
+                <input type="text" id="nombre" name="nombre" required placeholder="Ej. Summer League 2026">
+            </div>
+
+            <div class="form-group">
+                <label for="categoria">Categoría *</label>
+                <select id="categoria" name="categoria" required>
+                    <option value="" disabled selected>Selecciona un formato</option>
+                    <option value="3x3">3x3 Streetball</option>
+                    <option value="5x5">5x5 Tradicional</option>
+                    <option value="1x1">1x1 Duelos</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="sede">Cancha / Sede</label>
+                <input type="text" id="sede" name="sede" placeholder="Ej. Cancha Central Norte">
+            </div>
+
+            <div class="form-group">
+                <label for="equipos">Máx. de Equipos / Franquicias *</label>
+                <input type="number" id="equipos" name="equipos" min="2" max="16" placeholder="Ej. 16" required>
+            </div>
+
+            <div class="form-group">
+                <label for="fecha">Fecha de Inicio *</label>
+                <input type="date" id="fecha" name="fecha" required>
+            </div>
+
+            <div class="form-group">
+                <label for="inscriptionFee">Costo de Inscripción ($)</label>
+                <input type="number" id="inscriptionFee" name="inscriptionFee" min="0" placeholder="Ej. 100">
+            </div>
+
+            <button type="submit" class="btn-submit">Registrar Torneo</button>
+        </form>
+        <a href="/" class="back-link">← Volver al Inicio</a>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/js/crear-torneo.js"></script>
+</body>
+</html>

@@ -101,8 +101,20 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
     });
 
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
     const revealEls = document.querySelectorAll('.reveal');
     if (revealEls.length) {
+        // Entrada escalonada: los .reveal que comparten un mismo padre entran en
+        // secuencia (delay creciente), para que la lista se "arme" ante los ojos.
+        revealEls.forEach(el => {
+            const parent = el.parentElement;
+            if (!parent || reduceMotion) return;
+            const siblings = Array.from(parent.children).filter(c => c.classList.contains('reveal'));
+            const idx = siblings.indexOf(el);
+            if (idx > 0) el.style.transitionDelay = Math.min(idx, 8) * 90 + 'ms';
+        });
+
         const observer = new IntersectionObserver((entries) => {
             entries.forEach(entry => {
                 if (entry.isIntersecting) {
@@ -112,5 +124,61 @@ document.addEventListener('DOMContentLoaded', async () => {
             });
         }, { threshold: 0.1 });
         revealEls.forEach(el => observer.observe(el));
+    }
+
+    // ==========================================================================
+    // Datos vivos: contadores que cuentan de 0 al valor cuando entran en vista.
+    // Uso: <span class="count-up" data-countup="128">0</span>. Las páginas con
+    // datos dinámicos pueden fijar data-countup y llamar window.animateCount(el).
+    // ==========================================================================
+    window.animateCount = function (el) {
+        const raw = el.getAttribute('data-countup');
+        const target = parseFloat(raw);
+        if (isNaN(target)) return;
+        const decimals = ((raw.split('.')[1]) || '').length;
+        if (reduceMotion) { el.textContent = target.toFixed(decimals); return; }
+        const duration = 1100;
+        const startAt = performance.now();
+        (function tick(now) {
+            const p = Math.min((now - startAt) / duration, 1);
+            const eased = 1 - Math.pow(1 - p, 3);
+            el.textContent = (target * eased).toFixed(decimals);
+            if (p < 1) requestAnimationFrame(tick);
+            else el.textContent = target.toFixed(decimals);
+        })(startAt);
+    };
+    document.addEventListener('DOMContentLoaded', () => {
+    const navContainer = document.getElementById('navbar-container');
+    
+    if (navContainer) {
+        navContainer.innerHTML = `
+            <nav class="top-nav">
+                <div class="logo">RETRO HOOPS</div>
+                <ul class="nav-links">
+                    <li><a href="/index.html">INICIO</a></li>
+                    <li><a href="/ligas.html">LIGAS</a></li>
+                    <li><a href="/franquicias.html">FRANQUICIAS</a></li>
+                    <li><a href="/estadisticas.html">ESTADÍSTICAS</a></li>
+                </ul>
+                <div class="user-menu">
+                    <span>Hola, Isaí</span>
+                    <button class="btn-cerrar">CERRAR SESIÓN</button>
+                </div>
+            </nav>
+        `;
+    }
+});
+
+    const countEls = document.querySelectorAll('[data-countup]');
+    if (countEls.length) {
+        const countObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    window.animateCount(entry.target);
+                    countObserver.unobserve(entry.target);
+                }
+            });
+        }, { threshold: 0.4 });
+        countEls.forEach(el => countObserver.observe(el));
     }
 });

@@ -1,0 +1,367 @@
+/* RETRO HOOPS · index — estilos de página (extraídos del <style> inline; base en theme.css). */
+
+    /* ==========================================================================
+       RETRO HOOPS · Landing — sistema "gimnasio-arcade nocturno"
+       Todo deriva de tokens. Eje IZQUIERDO dominante. Oscuro sin excepción.
+       Elevación por borde + luz. Movimiento presupuestado (6 tipos).
+       ========================================================================== */
+
+    :root {
+        /* --- Color: alias a la paleta synthwave del theme (theme.css), la misma
+               del resto del sitio (Franquicias, Ligas…). naranja=acción ·
+               cian=dato · oro=logro/estado. --- */
+        --ink:      var(--bg-dark);            /* #0a0714 fondo */
+        --ink-2:    var(--card-bg);            /* #150f24 superficie */
+        --ink-3:    var(--card-bg-2);          /* #1b1330 tarjeta */
+        --line:     rgba(123, 47, 247, 0.30);  /* borde/divisor morado sutil */
+        --ball:     var(--orange);             /* #ff6a00 acción */
+        --board:    var(--cyan-accent);        /* #00f0ff dato */
+        --buzzer:   var(--gold);               /* #ffd700 logro/estado */
+        --text:     var(--text-main);
+        --text-dim: var(--text-muted);
+
+        /* Luces derivadas de los tokens (sin hex sueltos) */
+        --ball-glow:   color-mix(in srgb, var(--ball)   45%, transparent);
+        --board-glow:  color-mix(in srgb, var(--board)  45%, transparent);
+        --buzzer-glow: color-mix(in srgb, var(--buzzer) 45%, transparent);
+        --shade:       color-mix(in srgb, var(--ink) 72%, transparent);
+
+        /* --- Tipografía: las mismas fuentes del theme (Outfit + Press Start 2P) --- */
+        --font-display: var(--font-arcade);   /* Press Start 2P — titulares y logo */
+        --font-data:    var(--font-body);     /* Outfit — cifras, etiquetas, botones */
+        --font-read:    var(--font-body);     /* Outfit — lectura corrida */
+
+        /* Escala fluida (clamp, sin media queries de tipo) */
+        --fs-display:   clamp(1.55rem, 0.9rem + 3.1vw, 3rem);
+        --fs-h2:        clamp(1.125rem, 0.95rem + 0.9vw, 1.6rem);
+        --fs-data-xl:   clamp(2rem, 1.3rem + 3vw, 3.2rem);
+        --fs-lead:      clamp(1rem, 0.95rem + 0.4vw, 1.18rem);
+        --fs-body:      clamp(0.95rem, 0.9rem + 0.2vw, 1.05rem);
+        --fs-label:     clamp(0.75rem, 0.7rem + 0.18vw, 0.85rem);
+        --fs-title:     clamp(1.05rem, 0.95rem + 0.4vw, 1.25rem);
+
+        /* --- Espaciado / layout (tokens fluidos) --- */
+        --maxw:    1320px;
+        --pad-x:   clamp(1.1rem, 0.5rem + 3vw, 3rem);
+        --section: clamp(3rem, 2rem + 5vw, 6rem);
+        --gap:     clamp(1rem, 0.6rem + 1.4vw, 1.6rem);
+        --radius:    14px;
+        --radius-sm: 8px;
+        --header-h:  68px;
+
+        --ease: cubic-bezier(.16, .84, .3, 1);
+    }
+
+    /* El cajón de nav móvil (theme.css) es position:fixed y en cerrado se va
+       fuera del viewport a la derecha; el overflow-x del body no recorta fijos,
+       así que clipamos en la raíz. (Solo afecta a esta página.) */
+    html { overflow-x: hidden; }
+
+    /* La landing hereda el fondo, las scanlines CRT, la rejilla en perspectiva
+       y todo el "chrome" (header, nav, botones, footer, scrollbar) de theme.css
+       —los mismos que el resto del sitio (Franquicias, Ligas…)—. No se
+       reinician ni se sobrescriben: así el formato y los colores son los
+       originales. Solo fijamos texto y fuente base sobre esa herencia. */
+    body.landing {
+        color: var(--text);
+        font-family: var(--font-read);
+    }
+
+    /* --- Foco visible en todo lo interactivo (cian, alto contraste) --- */
+    body.landing a:focus-visible,
+    body.landing button:focus-visible,
+    body.landing .btn:focus-visible {
+        outline: 2px solid var(--board);
+        outline-offset: 3px;
+        border-radius: var(--radius-sm);
+    }
+
+    /* --- Contenedor base (12 col disponibles vía grid donde haga falta) --- */
+    .landing-main { padding: 0; }
+    .wrap { width: 100%; max-width: var(--maxw); margin-inline: auto; padding-inline: var(--pad-x); }
+
+    /* Etiqueta de sección (mono, cian = dato). Un mismo patrón, eje izquierdo. */
+    .eyebrow {
+        display: inline-flex; align-items: center; gap: 0.6rem;
+        font-family: var(--font-data); font-size: var(--fs-label);
+        letter-spacing: 0.16em; text-transform: uppercase; color: var(--board);
+        margin: 0;
+    }
+    .eyebrow::before { content: ''; width: 20px; height: 2px; background: var(--ball); box-shadow: 0 0 10px var(--ball-glow); }
+
+    /* Titular de sección (pixel, corto, siempre ≥18px) */
+    .h-pixel {
+        font-family: var(--font-display); font-size: var(--fs-h2);
+        line-height: 1.42; text-transform: uppercase; letter-spacing: -0.5px;
+        color: var(--text); margin: 0.6rem 0 0;
+        text-shadow: 3px 3px 0 color-mix(in srgb, var(--board) 20%, transparent);
+    }
+
+    .section { padding-block: var(--section); }
+
+    /* ============================================================
+       (3) MOVIMIENTO: capa que sube — el hero queda sticky detrás y
+       el bloque de contenido sube sobre él con esquinas superiores
+       redondeadas + borde. Se usa UNA sola vez (corte hero→producto).
+       ============================================================ */
+    .hero-layer { position: sticky; top: 0; z-index: 0; }
+    .stage {
+        position: relative; z-index: 1;
+        background: var(--ink-2);
+        border-top: 1px solid var(--line);
+        border-radius: var(--radius) var(--radius) 0 0;
+        box-shadow: 0 -1px 0 var(--board-glow), 0 -30px 60px var(--shade);
+    }
+
+    /* ============================================================
+       HERO — 12 columnas, eje izquierdo. Panel = misma masa que el titular.
+       ============================================================ */
+    /* .hero-unit (NO .hero: colisiona con theme.css .hero → text-align:center,
+       .hero p y .hero h1 span con gradiente animado). */
+    .hero-unit {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: var(--gap);
+        align-items: center;
+        padding-block: var(--section);
+        min-height: min(78vh, 720px);
+        text-align: left;
+        margin: 0;
+    }
+    .hero__copy  { grid-column: 1 / 7; min-width: 0; }
+    .hero__panel { grid-column: 7 / 13; min-width: 0; }
+
+    .hero-unit h1 {
+        font-family: var(--font-display);
+        font-size: var(--fs-display);
+        line-height: 1.28; text-transform: uppercase; letter-spacing: -0.5px;
+        color: var(--text); margin: 0.9rem 0 0;
+        text-shadow: 4px 4px 0 color-mix(in srgb, var(--board) 22%, transparent);
+    }
+    .hero-unit h1 .line { display: block; }
+    .hero-unit h1 .accent { color: var(--ball); }
+
+    .lead {
+        font-family: var(--font-read); font-size: var(--fs-lead);
+        line-height: 1.65; color: var(--text-dim);
+        max-width: 46ch; margin: 1.4rem 0 0;
+    }
+
+    /* CTA gamificado del hero (acción = naranja al desbloquear) */
+    .hero-cta { margin-top: 2rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.8rem; }
+    .hero-unlock-btn {
+        display: inline-flex; align-items: center; gap: 0.65rem;
+        font-family: var(--font-data); font-size: 0.82rem; font-weight: 700;
+        letter-spacing: 0.06em; text-transform: uppercase;
+        padding: 0.95rem 1.4rem; border-radius: var(--radius-sm);
+        text-decoration: none; border: 1px solid transparent;
+        transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s, color 0.2s;
+    }
+    .hero-unlock-btn .lock-ico { width: 15px; height: 15px; flex-shrink: 0; }
+    .hero-unlock-btn.is-locked {
+        background: color-mix(in srgb, var(--line) 30%, transparent);
+        border-color: var(--line); color: var(--text-dim); cursor: not-allowed;
+    }
+    .hero-unlock-btn:not(.is-locked) {
+        background: var(--ball); color: var(--ink); border-color: var(--ball);
+        box-shadow: 0 0 18px var(--ball-glow);
+    }
+    .hero-unlock-btn:not(.is-locked):hover { transform: translateY(-2px); box-shadow: 0 8px 26px var(--ball-glow); }
+
+    .hero-progress { font-family: var(--font-data); color: var(--text-dim); font-size: 0.85rem; max-width: 42ch; line-height: 1.6; }
+    .hero-progress b { color: var(--board); font-weight: 700; }
+    .hero-progress.is-success { color: var(--text); }
+    .hero-progress .ok {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 18px; height: 18px; margin-right: 0.4rem;
+        border: 1px solid var(--buzzer); border-radius: 50%;
+        color: var(--buzzer); font-size: 0.7rem; font-weight: 700; vertical-align: -3px;
+    }
+    .hero-code {
+        display: none; font-family: var(--font-data); font-size: 0.82rem;
+        color: var(--text); border: 1px dashed var(--board); border-radius: var(--radius-sm);
+        padding: 0.5rem 0.8rem; letter-spacing: 1.5px; margin-top: 0.4rem;
+    }
+
+    /* ============================================================
+       PANEL ARCADE (elemento firma) — cabina jugable, borde + luz.
+       (6) MOVIMIENTO: scanlines CRT + parpadeo, SOLO dentro de la pantalla.
+       ============================================================ */
+    .landing .arcade-cabinet {
+        transform: none;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--ink);
+        padding: clamp(0.5rem, 0.4rem + 0.4vw, 0.85rem);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--board) 12%, transparent),
+                    0 0 46px color-mix(in srgb, var(--board) 10%, transparent);
+        animation: none;
+    }
+    .landing .arcade-scoreboard {
+        display: flex; align-items: center; justify-content: space-between; gap: 0.5rem;
+        padding: 0.5rem 0.4rem 0.6rem;
+    }
+    .landing .ag-title {
+        font-family: var(--font-data); font-weight: 700; font-size: 0.7rem;
+        line-height: 1.3; letter-spacing: 0.06em; color: var(--board);
+        text-shadow: none;
+    }
+    .landing .ag-scorebox {
+        display: inline-flex; align-items: baseline; gap: 0.35rem;
+        padding: 0.35rem 0.7rem;
+        background: color-mix(in srgb, var(--board) 8%, transparent);
+        border: 1px solid var(--board);
+        border-radius: var(--radius-sm);
+        box-shadow: 0 0 10px var(--board-glow);
+    }
+    .landing .ag-score { font-family: var(--font-data); font-weight: 700; font-size: 1.15rem; color: var(--board); font-variant-numeric: tabular-nums; text-shadow: 0 0 12px var(--board-glow); }
+    .landing .ag-pts { font-family: var(--font-data); font-size: 0.75rem; letter-spacing: 0.1em; color: var(--text-dim); }
+    .landing .ag-mute {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 30px; height: 30px; flex-shrink: 0;
+        background: color-mix(in srgb, var(--board) 8%, transparent); color: var(--board);
+        border: 1px solid color-mix(in srgb, var(--board) 40%, transparent);
+        border-radius: var(--radius-sm); cursor: pointer; transition: background 0.18s;
+    }
+    .landing .ag-mute:hover { background: color-mix(in srgb, var(--board) 16%, transparent); }
+    .landing .ag-mute[aria-pressed="true"] { color: var(--text-dim); border-color: var(--line); background: transparent; }
+    .landing .ag-streak {
+        min-height: 0.95rem; padding: 0 0.4rem 0.4rem;
+        font-family: var(--font-data); font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em;
+        color: var(--buzzer); text-shadow: 0 0 8px var(--buzzer-glow);
+    }
+    .landing .arcade-stage { position: relative; border-radius: var(--radius-sm); overflow: hidden; background: var(--ink); }
+    .landing #ag-canvas { display: block; width: 100%; height: auto; aspect-ratio: 400 / 300; touch-action: none; cursor: grab; image-rendering: pixelated; }
+    .landing #ag-canvas:active { cursor: grabbing; }
+    .landing .ag-hint {
+        position: absolute; left: 0; right: 0; bottom: 14%; text-align: center;
+        font-family: var(--font-data); font-weight: 700; font-size: 0.62rem; letter-spacing: 0.1em;
+        color: var(--text); text-shadow: 0 0 8px var(--board-glow), 0 2px 4px var(--ink);
+        pointer-events: none; animation: ag-blink 1.4s steps(2, jump-none) infinite;
+    }
+    @keyframes ag-blink { 50% { opacity: 0.35; } }
+    .landing .ag-hint.gone { display: none; }
+
+    /* Scanlines CRT en movimiento — contenidas a la pantalla del panel */
+    .landing .arcade-stage::after {
+        content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 2;
+        background: repeating-linear-gradient(
+            to bottom,
+            transparent 0 2px,
+            color-mix(in srgb, var(--ink) 55%, transparent) 2px 3px);
+        mix-blend-mode: overlay; opacity: 0.55;
+        animation: crt-scan 5.5s linear infinite, crt-flicker 3.4s steps(1) infinite;
+    }
+    @keyframes crt-scan { from { background-position: 0 0; } to { background-position: 0 6px; } }
+    @keyframes crt-flicker { 0%, 100% { opacity: 0.55; } 47% { opacity: 0.5; } 48% { opacity: 0.62; } 49% { opacity: 0.52; } }
+
+    /* ============================================================
+       TARJETAS (beneficios + jugadas) — mismo sistema. container-query.
+       (5) MOVIMIENTO: hover = +6px, borde naranja, barra de energía L→R.
+       ============================================================ */
+    .grid-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+        gap: var(--gap); margin-top: 2rem;
+    }
+    /* .rh-card (NO .card: colisiona con theme.css .card → barra superior
+       naranja/rosa/cian, padding 2.25rem y hover propios). */
+    .rh-card {
+        container-type: inline-size;
+        position: relative; overflow: hidden;
+        background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius);
+        padding: clamp(1.25rem, 1rem + 1vw, 1.9rem);
+        transition: transform 0.4s var(--ease), border-color 0.4s var(--ease);
+    }
+    .rh-card::before {
+        content: ''; position: absolute; left: 0; top: 0; height: 3px; width: 100%;
+        transform: scaleX(0); transform-origin: left;
+        background: var(--ball); box-shadow: 0 0 12px var(--ball-glow);
+        transition: transform 0.4s var(--ease);
+    }
+    .rh-card:hover { transform: translateY(-6px); border-color: var(--ball); }
+    .rh-card:hover::before { transform: scaleX(1); }
+
+    .card__kicker { margin: 0 0 0.9rem; font-family: var(--font-data); font-size: var(--fs-label); letter-spacing: 0.1em; text-transform: uppercase; color: var(--board); }
+    .card__title { margin: 0; font-family: var(--font-read); font-weight: 600; font-size: var(--fs-title); text-transform: uppercase; letter-spacing: 0.02em; color: var(--text); }
+    .card__text { margin: 0.9rem 0 0; font-family: var(--font-read); font-size: var(--fs-body); line-height: 1.65; color: var(--text-dim); }
+    .card__accent { display: inline-flex; margin-top: 1.4rem; font-family: var(--font-data); font-size: var(--fs-label); font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--board); }
+
+    /* Jugadas: número de posesión (mono, cian = dato) */
+    .plays { position: relative; }
+    .plays::before {
+        content: ''; position: absolute; left: 4px; right: 4px; top: 6px; height: 0;
+        border-top: 2px dashed var(--line); z-index: 0;
+    }
+    .play { position: relative; }
+    .play__num {
+        display: block; font-family: var(--font-data); font-weight: 700;
+        font-size: clamp(1.5rem, 1rem + 1.6vw, 2.1rem); color: var(--board);
+        text-shadow: 0 0 14px var(--board-glow); line-height: 1; margin-bottom: 0.9rem;
+    }
+
+    /* ============================================================
+       (5→dato) MARCADOR de la temporada — panel tipo tablero de gimnasio.
+       (4) MOVIMIENTO: contadores 0→valor easeOutCubic 1400ms.
+       ============================================================ */
+    .board { margin-top: 2rem; background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+    .board__head {
+        display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+        padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--line);
+        font-family: var(--font-data); font-size: var(--fs-label); letter-spacing: 0.12em;
+        text-transform: uppercase; color: var(--text-dim);
+    }
+    .board__live { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--buzzer); }
+    .board__live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--buzzer); box-shadow: 0 0 10px var(--buzzer-glow); }
+    .board__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
+    .board__cell { padding: clamp(1.3rem, 1rem + 1.5vw, 2rem) 1.1rem; border-right: 1px solid var(--line); }
+    .board__cell:last-child { border-right: 0; }
+    .stat__num { font-family: var(--font-data); font-weight: 700; font-size: var(--fs-data-xl); color: var(--board); text-shadow: 0 0 18px var(--board-glow); font-variant-numeric: tabular-nums; line-height: 1; }
+    .stat__num .stat__suffix { color: var(--board); }
+    .stat__label { margin-top: 0.6rem; font-family: var(--font-data); font-size: var(--fs-label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
+
+    /* ============================================================
+       CTA final — última posesión (acción = naranja sólido)
+       ============================================================ */
+    .cta-final__box { border: 1px solid var(--line); border-radius: var(--radius); background: var(--ink-3); padding: clamp(1.6rem, 1rem + 3vw, 3rem); }
+    .cta-final .lead { margin-bottom: 1.6rem; }
+    .btn-action {
+        display: inline-flex; align-items: center; gap: 0.5rem;
+        font-family: var(--font-data); font-weight: 700; font-size: 0.9rem;
+        letter-spacing: 0.08em; text-transform: uppercase; text-decoration: none;
+        padding: 0.95rem 1.5rem; border-radius: var(--radius-sm);
+        background: var(--ball); color: var(--ink); border: 1px solid var(--ball);
+        box-shadow: 0 0 18px var(--ball-glow);
+        transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease);
+    }
+    .btn-action:hover { transform: translateY(-2px); box-shadow: 0 8px 26px var(--ball-glow); }
+
+    /* ============================================================
+       MOVIMIENTO (1) carga del hero — secuencia orquestada, un disparo.
+       MOVIMIENTO (2) revelado al scroll — traslación Y (misma dirección).
+       Solo transform + opacity. Duraciones ≤ 700ms.
+       ============================================================ */
+    @keyframes rise-in { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: none; } }
+    .landing [data-anim] { opacity: 0; animation: rise-in 0.6s var(--ease) both; }
+
+    .rise { opacity: 0; transform: translateY(20px); transition: opacity 0.6s var(--ease), transform 0.6s var(--ease); }
+    .rise.is-in { opacity: 1; transform: none; }
+
+    /* ============================================================
+       LAYOUT MEDIA QUERY #1 (de 2 permitidas) — apilar el hero.
+       ============================================================ */
+    @media (max-width: 900px) {
+        .hero-unit { min-height: 0; }
+        .hero__copy  { grid-column: 1 / -1; }
+        .hero__panel { grid-column: 1 / -1; max-width: 520px; }
+    }
+
+    /* Accesibilidad: movimiento reducido → estado final, nada se mueve. */
+    @media (prefers-reduced-motion: reduce) {
+        .landing [data-anim] { animation: none; opacity: 1; }
+        .rise { opacity: 1; transform: none; transition: none; }
+        .landing .arcade-stage::after { animation: none; }
+        .landing .ag-hint { animation: none; }
+        .hero-unlock-btn:not(.is-locked):hover,
+        .rh-card:hover, .btn-action:hover { transform: none; }
+    }

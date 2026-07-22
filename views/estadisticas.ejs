@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: 'Estadísticas - Retro Hoops', pageCss: '/css/estadisticas.css' }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container">
+    <section class="hero fade-in-up">
+            <div class="hero-header">
+                <h1 class="page-title" style="margin: 0;">LÍDERES DE LA <span>LIGA</span></h1>
+
+                <div class="tournament-select-wrap">
+                    <div class="form-group" style="margin: 0;">
+                        <select id="tournament-select">
+                            <option value="" disabled selected>Cargando Torneos...</option>
+                        </select>
+                    </div>
+                    <p id="error-message" style="color: var(--orange); display: none; margin-top: 0.5rem;"></p>
+                </div>
+            </div>
+        </section>
+
+        <div class="cards-grid reveal" id="stats-grid-container" style="display: none;">
+            <div class="card">
+                <h2 class="section-title" style="font-size: 0.95rem; justify-content: center; border-left: none; padding-left: 0;">Puntos por Partido (PPG)</h2>
+                <div class="table-wrap">
+                    <table class="kp-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Jugador</th>
+                                <th style="text-align: right;">PPG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ppg-body">
+                            <!-- Filas de PPG -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="section-title" style="font-size: 0.95rem; justify-content: center; border-left: none; padding-left: 0;">Rebotes (RPG)</h2>
+                <div class="table-wrap">
+                    <table class="kp-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Jugador</th>
+                                <th style="text-align: right;">RPG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rpg-body">
+                            <!-- Filas de RPG -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card">
+                <h2 class="section-title" style="font-size: 0.95rem; justify-content: center; border-left: none; padding-left: 0;">Asistencias (APG)</h2>
+                <div class="table-wrap">
+                    <table class="kp-table">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Jugador</th>
+                                <th style="text-align: right;">APG</th>
+                            </tr>
+                        </thead>
+                        <tbody id="apg-body">
+                            <!-- Filas de APG -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Estado vacío: el torneo seleccionado aún no tiene estadísticas
+             cargadas. Reemplaza las 3 tablas con un mensaje claro + CTA. -->
+        <div class="empty-state reveal" id="empty-state" style="display: none;">
+            <div class="empty-icon">📊</div>
+            <h3>Sé el primero en registrar estadísticas</h3>
+            <p>Este torneo todavía no tiene partidos con estadísticas cargadas. Anota los puntos, rebotes y asistencias de un partido desde la Mesa de Control para que aparezcan aquí.</p>
+            <a href="#" id="empty-state-cta" class="btn btn-primary"><span class="btn-content">🏀 Cargar Estadísticas</span></a>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/js/estadisticas.js"></script>
+</body>
+</html>

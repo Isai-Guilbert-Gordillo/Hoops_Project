@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', { title: "Perfil de Equipo - Retro Hoops", pageCss: "/css/perfil-equipo.css" }) %>
+</head>
+<body>
+
+    <%- include('partials/header') %>
+
+    <div class="container">
+        <p id="error-message"></p>
+
+        <div id="content" style="display: none;">
+            <!-- Hero / Header del Equipo -->
+            <div class="hero team-hero fade-in-up">
+                <div id="team-logo-container"></div>
+                <h1 id="team-name">Cargando...</h1>
+                <div class="team-record" id="team-record">Récord: 0 - 0</div>
+            </div>
+
+            <!-- Roster -->
+            <h2 class="section-title reveal">Roster de Jugadores</h2>
+            <div class="table-wrap reveal">
+                <table class="kp-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Nombre</th>
+                            <th>Posición</th>
+                            <th>Estado</th>
+                        </tr>
+                    </thead>
+                    <tbody id="roster-body">
+                        <!-- Roster cargado por JS -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Historial de Partidos -->
+            <h2 class="section-title reveal">Últimos Partidos</h2>
+            <div id="match-history" class="reveal" style="margin-bottom: 4rem;">
+                <!-- Historial cargado por JS -->
+            </div>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <script src="/js/nav.js"></script>
+    <script src="/js/perfil-equipo.js"></script>
+</body>
+</html>

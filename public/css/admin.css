@@ -1,0 +1,9 @@
+/* RETRO HOOPS · admin — estilos de página (extraídos del <style> inline; base en theme.css). */
+
+        .user-row-name { font-weight: 700; color: var(--text-main); }
+        .user-row-email { color: var(--text-muted); font-size: 0.85rem; }
+        .role-badge-admin { background: rgba(255, 215, 0, 0.1); color: var(--gold); border: 1px solid var(--gold); }
+        .role-badge-organizer { background: rgba(0, 200, 255, 0.1); color: var(--cyan-accent); border: 1px solid var(--cyan-accent); }
+        .role-badge-player { background: rgba(167, 159, 194, 0.1); color: var(--text-muted); border: 1px solid var(--text-muted); }
+        .role-actions { display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; }
+        #access-denied { display: none; text-align: center; padding: 4rem 1.5rem; color: var(--text-muted); }

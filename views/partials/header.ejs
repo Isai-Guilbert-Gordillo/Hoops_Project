@@ -1,0 +1,27 @@
+<%#
+  Header + navegación, idéntico en todo el sitio. La sesión (saludo / botones
+  de login-registro vs. cerrar sesión) la resuelve /js/nav.js en el cliente.
+  Locals opcionales:
+    - hideLogin    (bool) → oculta "Iniciar Sesión" (p. ej. en la página de login)
+    - hideRegister (bool) → oculta "Registrarse"
+%>
+<header>
+    <a href="/" class="logo">RETRO HOOPS</a>
+    <button class="nav-toggle" id="nav-toggle" aria-label="Abrir menú">
+        <span></span><span></span><span></span>
+    </button>
+    <div class="nav-wrapper" id="nav-wrapper">
+        <nav class="main-nav">
+            <a href="/">Inicio</a>
+            <a href="/ligas.html">Ligas</a>
+            <a href="/franquicias.html">Franquicias</a>
+            <a href="/estadisticas.html">Estadísticas</a>
+        </nav>
+        <div class="header-actions">
+            <span id="user-greeting" class="user-greeting"></span>
+            <a href="/login.html" class="btn" id="btn-login"<% if (typeof hideLogin !== 'undefined' && hideLogin) { %> style="display: none;"<% } %>><span class="btn-content">Iniciar Sesión</span></a>
+            <a href="/registro.html" class="btn btn-cyan" id="btn-register"<% if (typeof hideRegister !== 'undefined' && hideRegister) { %> style="display: none;"<% } %>><span class="btn-content">Registrarse</span></a>
+            <button class="btn btn-ghost" id="btn-logout" style="display: none;"><span class="btn-content">Cerrar Sesión</span></button>
+        </div>
+    </div>
+</header>

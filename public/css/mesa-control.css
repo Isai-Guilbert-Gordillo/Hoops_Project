@@ -1,0 +1,373 @@
+/* RETRO HOOPS · mesa-control — estilos de página (extraídos del <style> inline; base en theme.css). */
+
+        /* ==========================================================================
+           Mesa de Control — Marcador arcade (elementos específicos de esta página)
+           ========================================================================== */
+
+        html, body { height: 100%; }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* App-like: sin scroll de página */
+        }
+
+        /* Header compacto — sala de control, la protagonista es el marcador */
+        header {
+            padding: 0.75rem 1.5rem;
+            flex-wrap: wrap;
+            row-gap: 0.75rem;
+        }
+
+        /* Marcador Central */
+        .scoreboard-bar {
+            width: 100%;
+            background: linear-gradient(160deg, var(--card-bg), var(--card-bg-2));
+            border-bottom: 2px solid var(--orange);
+            box-shadow: 0 4px 25px rgba(0, 0, 0, 0.6);
+            padding: 1rem 1.5rem;
+        }
+
+        .scoreboard {
+            display: flex;
+            width: 100%;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            gap: 1rem;
+        }
+
+        .team-score {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            transition: box-shadow var(--transition);
+        }
+
+        .team-score.home {
+            box-shadow: inset 0 0 0 1px rgba(255, 106, 0, 0.25), 0 0 25px rgba(255, 106, 0, 0.12);
+        }
+
+        .team-score.away {
+            box-shadow: inset 0 0 0 1px rgba(0, 240, 255, 0.25), 0 0 25px rgba(0, 240, 255, 0.12);
+        }
+
+        .team-name {
+            font-family: var(--font-arcade);
+            font-size: 1rem;
+            text-align: center;
+            margin-bottom: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .team-score.home .team-name {
+            color: var(--orange);
+            text-shadow: 0 0 12px var(--orange-glow);
+        }
+
+        .team-score.away .team-name {
+            color: var(--cyan-accent);
+            text-shadow: 0 0 12px var(--cyan-glow);
+        }
+
+        .score-number {
+            font-family: var(--font-arcade);
+            font-size: 4.2rem;
+            font-weight: 800;
+            line-height: 1;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .team-score.home .score-number {
+            color: var(--orange-2);
+            text-shadow: 0 0 10px var(--orange-glow), 0 0 30px var(--orange-glow);
+        }
+
+        .team-score.away .score-number {
+            color: var(--cyan-accent);
+            text-shadow: 0 0 10px var(--cyan-glow), 0 0 30px var(--cyan-glow);
+        }
+
+        .clock-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+
+        .clock-time {
+            font-family: var(--font-arcade);
+            font-size: 2.6rem;
+            color: var(--gold);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.55), 0 0 25px rgba(255, 215, 0, 0.3);
+            margin-bottom: 0.6rem;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .quarter-badge {
+            font-family: var(--font-arcade);
+            font-size: 0.7rem;
+            background: rgba(123, 47, 247, 0.15);
+            border: 1px solid var(--purple);
+            color: var(--text-main);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 0.9rem;
+            cursor: pointer;
+            animation: pulse-glow 2s ease-in-out infinite;
+            transition: transform var(--transition);
+        }
+
+        .quarter-badge:hover { transform: scale(1.08); }
+
+        .clock-controls {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Botón "Anular punto": deshace el último +1/+2/+3 anotado, para
+           corregir un clic equivocado sin tener que reiniciar el partido. */
+        #btn-undo-point {
+            margin-top: 0.6rem;
+        }
+
+        #btn-undo-point:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            filter: grayscale(0.6);
+        }
+
+        #btn-undo-point:disabled:hover {
+            transform: none;
+            box-shadow: none;
+        }
+
+        .team-fouls {
+            font-size: 0.78rem;
+            color: #ff5555;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 0.6rem;
+        }
+
+        /* Botones grandes tipo arcade para la mesa de control */
+        .btn-scoreboard .btn-content {
+            padding: 0.9rem 1.6rem;
+            font-size: 1rem;
+        }
+
+        /* Main Content Grid — rosters */
+        main {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            flex: 1;
+            overflow-y: hidden;
+        }
+
+        .roster-panel {
+            padding: 1rem;
+            overflow-y: auto;
+        }
+
+        .roster-panel:first-child {
+            border-right: 1px solid var(--border-soft);
+        }
+
+        .roster-header {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 1px;
+            display: flex;
+            justify-content: space-between;
+            padding: 0.6rem 0;
+            border-bottom: 1px solid var(--border-soft);
+        }
+
+        /* Fila de jugador en 2 líneas: nombre arriba, stats + acciones abajo.
+           Con las 4 fichas de stats a color, una sola línea no entraba en el
+           ancho de la columna del roster junto a los botones de acción. */
+        .player-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            padding: 0.9rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .player-top {
+            display: flex;
+            align-items: center;
+        }
+
+        .player-bottom {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+        }
+
+        .player-info {
+            display: flex;
+            align-items: center;
+            flex: 1;
+            min-width: 0; /* permite que player-name trunque en vez de empujar los chips */
+        }
+
+        .player-number {
+            font-family: var(--font-arcade);
+            font-weight: 800;
+            color: var(--orange);
+            width: 34px;
+            flex-shrink: 0;
+            font-size: 1rem;
+        }
+
+        .player-name {
+            font-weight: 600;
+            font-size: 0.9rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 220px;
+        }
+
+        /* Estadísticas del jugador: antes era una línea de texto gris diminuta
+           ("P:0 R:0 A:0 F:0"), difícil de leer de un vistazo en la mesa de
+           control. Ahora cada stat es una "ficha" con su propio color (el
+           mismo que su botón +1/REB/AST/F), para identificarlas al instante. */
+        .player-stat-badges {
+            display: flex;
+            gap: 0.35rem;
+        }
+
+        .stat-chip {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            padding: 0.15rem 0.35rem;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border-soft);
+            transition: background-color var(--transition), box-shadow var(--transition);
+        }
+
+        .stat-chip .stat-value {
+            font-family: var(--font-arcade);
+            font-size: 0.85rem;
+            font-weight: 800;
+            line-height: 1.2;
+        }
+
+        .stat-chip .stat-label {
+            font-size: 0.52rem;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-top: 1px;
+        }
+
+        .stat-chip.stat-pts { border-color: var(--cyan-glow); }
+        .stat-chip.stat-pts .stat-value { color: var(--cyan-accent); }
+
+        .stat-chip.stat-reb { border-color: var(--purple-glow); }
+        .stat-chip.stat-reb .stat-value { color: var(--purple); }
+
+        .stat-chip.stat-ast { border-color: var(--orange-glow); }
+        .stat-chip.stat-ast .stat-value { color: var(--orange); }
+
+        .stat-chip.stat-foul { border-color: var(--danger-glow); }
+        .stat-chip.stat-foul .stat-value { color: var(--danger); }
+
+        /* A partir de la 4ta falta, un jugador está a una de salir por faltas:
+           la ficha se resalta para que el organizador lo note sin tener que hacer cuentas. */
+        .stat-chip.stat-foul.is-warning {
+            background: rgba(255, 59, 59, 0.18);
+            border-color: var(--danger);
+            box-shadow: 0 0 10px var(--danger-glow);
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.3rem;
+        }
+
+        .action-btn {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-soft);
+            color: var(--text-main);
+            width: 36px;
+            height: 36px;
+            border-radius: 6px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: transform 0.1s, background-color var(--transition), box-shadow var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .action-btn:active {
+            transform: scale(0.9) translateY(1px);
+        }
+
+        .action-btn.pts-btn:hover { background-color: var(--cyan-accent); border-color: var(--cyan-accent); color: var(--bg-darker); box-shadow: 0 0 12px var(--cyan-glow); }
+        .action-btn.reb-btn:hover { background-color: var(--purple); border-color: var(--purple); box-shadow: 0 0 12px var(--purple-glow); }
+        .action-btn.ast-btn:hover { background-color: var(--orange); border-color: var(--orange); box-shadow: 0 0 12px var(--orange-glow); }
+        .action-btn.foul-btn:hover { background-color: #ff3333; border-color: #ff3333; box-shadow: 0 0 12px rgba(255, 51, 51, 0.5); }
+
+        /* Footer de control (finalizar partido) */
+        .control-footer {
+            background-color: var(--card-bg);
+            padding: 1rem;
+            text-align: center;
+            border-top: 2px solid var(--border-soft);
+        }
+
+        #loading-overlay {
+            position: fixed;
+            inset: 0;
+            background: var(--bg-dark);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            font-family: var(--font-arcade);
+            color: var(--cyan-accent);
+            text-shadow: 0 0 15px var(--cyan-glow);
+        }
+
+        /* ==========================================================================
+           Responsividad específica del marcador
+           ========================================================================== */
+
+        @media (max-width: 860px) {
+            .scoreboard {
+                flex-wrap: wrap;
+            }
+            .team-score { flex: 1 1 40%; }
+            .clock-section { order: -1; flex: 1 1 100%; margin-bottom: 0.5rem; }
+        }
+
+        @media (max-width: 640px) {
+            main { grid-template-columns: 1fr; overflow-y: auto; }
+            body { overflow: auto; }
+            .roster-panel:first-child { border-right: none; border-bottom: 1px solid var(--border-soft); }
+            .score-number { font-size: 3rem; }
+            .clock-time { font-size: 2rem; }
+            .team-score { flex: 1 1 100%; }
+            .player-name { max-width: 100px; }
+            .btn-scoreboard .btn-content { padding: 0.7rem 1.1rem; font-size: 0.85rem; }
+        }

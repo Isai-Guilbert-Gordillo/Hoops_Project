@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <%- include('partials/head', {
+        title: 'Ligas — Retro Hoops',
+        description: 'Explora y gestiona ligas de básquetbol en Retro Hoops.',
+        pageCss: '/css/ligas.css'
+    }) %>
+</head>
+<body class="ligas">
+
+    <%- include('partials/header') %>
+
+    <main>
+        <!-- Hero compacto: visible sin scroll a 900px de alto -->
+        <section class="lg-hero">
+            <div class="wrap">
+                <span class="eyebrow">Temporada 2026</span>
+                <h1 class="lg-h1">Domina la <span class="accent">Cancha</span></h1>
+                <p class="lead">Ligas de básquetbol organizadas, con inscripciones abiertas y estadísticas en tiempo real.</p>
+            </div>
+        </section>
+
+        <!-- Título de sección + botón de nuevo torneo -->
+        <div class="lg-controls">
+            <div class="wrap lg-controls__inner">
+                <h2 class="h-pixel">Ligas Destacadas</h2>
+                <a href="/crear-torneo.html" class="lg-btn-primary" id="btn-new-tournament" style="display:none;">
+                    + Nuevo Torneo
+                </a>
+            </div>
+        </div>
+
+        <!-- Filtros con misma superficie que las tarjetas -->
+        <div class="lg-filters-wrap">
+            <div class="wrap">
+                <div class="lg-filters">
+                    <input type="text" id="search-tournaments" placeholder="Buscar liga por nombre…">
+                    <select id="filter-format">
+                        <option value="">Formato: Todos</option>
+                        <option value="3x3">3x3</option>
+                        <option value="5x5">5x5</option>
+                        <option value="1x1">1x1</option>
+                    </select>
+                    <select id="filter-status">
+                        <option value="">Estado: Todos</option>
+                        <option value="open">Abierto</option>
+                        <option value="live">En curso</option>
+                        <option value="ended">Finalizado</option>
+                    </select>
+                    <!-- Solo visible para ORGANIZER/ADMIN (lo activa ligas.js) -->
+                    <select id="filter-owner" style="display:none;">
+                        <option value="mine">Mis ligas</option>
+                        <option value="all">Todas las ligas</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Grid de ligas -->
+        <section class="lg-section">
+            <div class="wrap">
+                <div class="torneos-grid" id="tournaments-container">
+                    <p style="color:var(--text-dim);font-family:var(--font-data);font-size:var(--fs-label);">Cargando ligas…</p>
+                </div>
+                <p id="no-results-msg" style="display:none;color:var(--text-dim);font-family:var(--font-data);font-size:var(--fs-label);text-align:center;margin:2rem 0;">
+                    Ninguna liga coincide con tu búsqueda o filtros.
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <!-- Modal de edición (posicionado por theme.css, coloreado por tokens) -->
+    <div class="modal-overlay" id="edit-tournament-modal" style="display: none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3 class="modal-title">Editar Torneo</h3>
+                <button type="button" class="modal-close-btn" id="edit-tournament-close" aria-label="Cerrar">&times;</button>
+            </div>
+            <form id="edit-tournament-form">
+                <div class="form-group">
+                    <label for="edit-t-name">Nombre del Torneo</label>
+                    <input type="text" id="edit-t-name" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-t-category">Formato</label>
+                    <input type="text" id="edit-t-category" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-t-venue">Sede</label>
+                    <input type="text" id="edit-t-venue">
+                </div>
+                <div class="modal-actions">
+                    <button type="submit" class="btn-submit">Guardar Cambios</button>
+                    <button type="button" class="btn btn-ghost" id="edit-tournament-cancel"><span class="btn-content">Cancelar</span></button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <%- include('partials/footer') %>
+
+    <!-- Scripts: navegación/sesión + los propios de esta página -->
+    <script src="/js/nav.js"></script>
+    <script src="/confirm-modal.js"></script>
+    <script src="/js/ligas.js"></script>
+</body>
+</html>

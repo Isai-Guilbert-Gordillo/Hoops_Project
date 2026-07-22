@@ -1,0 +1,1170 @@
+/* RETRO HOOPS · torneo — estilos de página (extraídos del <style> inline; base en theme.css). */
+
+        /* Delta styles específicos de la página de Torneo: bracket de playoffs,
+           hero de detalles del torneo y tabla de estadísticas del modal. */
+
+        /* Datos clave de la liga como "stat tiles": etiqueta pequeña arriba y
+           valor grande y de alto contraste abajo. Antes eran badges pequeños
+           con borde casi invisible; ahora el dato (5x5, sede, fecha, cupo) es
+           lo primero que se lee. */
+        .hero-details {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        /* En esta página el layout va justo debajo del hero, así que recortamos
+           el gran margin-bottom global del hero para eliminar el espacio muerto.
+           Además alineamos la cabecera a la IZQUIERDA (el .hero global va
+           centrado) para unificar el eje: título, sidebar y contenido caen todos
+           sobre la misma línea, sin el quiebre centro→izquierda. */
+        #tournament-hero { margin-bottom: 1.25rem; text-align: left; }
+
+        .hero-details div {
+            display: flex;
+            flex-direction: column;
+            gap: 0.3rem;
+            min-width: 120px;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 0.8rem 1.4rem;
+            border-radius: 10px;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+        }
+
+        .hero-details strong {
+            color: var(--orange);
+            font-size: 0.72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .hero-details span {
+            color: var(--text-main);
+            font-size: 1.3rem;
+            font-weight: 800;
+            line-height: 1.15;
+        }
+
+        h2.section-header {
+            font-family: var(--font-arcade);
+            font-size: 1.2rem;
+            color: var(--orange);
+            margin-bottom: 1.5rem;
+            border-bottom: 2px solid var(--border-soft);
+            padding-bottom: 0.5rem;
+        }
+
+        /* Resaltado de posiciones en la tabla de standings (top 3), aplicado
+           solo por orden de fila — no depende de clases inyectadas por JS. */
+        #standings-body tr:nth-child(1) td:first-child {
+            color: var(--gold);
+            font-weight: 800;
+        }
+        #standings-body tr:nth-child(2) td:first-child,
+        #standings-body tr:nth-child(3) td:first-child {
+            color: var(--cyan-accent);
+            font-weight: 800;
+        }
+        #standings-body tr:nth-child(1) {
+            box-shadow: inset 3px 0 0 var(--gold);
+        }
+        #standings-body tr:nth-child(2),
+        #standings-body tr:nth-child(3) {
+            box-shadow: inset 3px 0 0 var(--cyan-accent);
+        }
+
+        /* Enrolled Teams Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-bottom: 3rem;
+        }
+
+        /* ── Tarjeta de franquicia inscrita (diseño moderno/minimalista) ── */
+        .enrolled-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.01));
+            border: 1px solid var(--border-soft);
+            border-radius: 16px;
+            padding: 1.1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.9rem;
+            transition: border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+        }
+        .enrolled-card:hover {
+            border-color: rgba(0, 240, 255, 0.4);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+        }
+
+        .enrolled-card__head {
+            display: flex;
+            align-items: center;
+            gap: 0.85rem;
+            text-decoration: none;
+            color: inherit;
+            min-width: 0;
+        }
+        .enrolled-card__logo {
+            width: 52px;
+            height: 52px;
+            flex: 0 0 52px;
+            border-radius: 50%;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-darker);
+            border: 1px solid var(--border-soft);
+        }
+        .enrolled-card__logo img { width: 100%; height: 100%; object-fit: cover; }
+        .enrolled-card__ph {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+        }
+        .enrolled-card__meta {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            min-width: 0;
+        }
+        .enrolled-card__name {
+            margin: 0;
+            font-size: 1.05rem;
+            color: var(--text-main);
+            text-transform: capitalize;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .enrolled-card__cap {
+            margin: 0;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .enr-badge {
+            align-self: flex-start;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.5rem;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            padding: 0.32rem 0.55rem;
+            border-radius: 999px;
+            border: 1px solid transparent;
+            line-height: 1;
+        }
+        .enr-badge.is-paid { color: #38e08a; background: rgba(56, 224, 138, 0.1); border-color: rgba(56, 224, 138, 0.32); }
+        .enr-badge.is-debt { color: var(--orange); background: rgba(255, 106, 0, 0.1); border-color: rgba(255, 106, 0, 0.32); }
+
+        .enr-pay { display: flex; flex-direction: column; gap: 0.5rem; }
+        .enr-pay__bar {
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.08);
+            overflow: hidden;
+        }
+        .enr-pay__bar span {
+            display: block;
+            height: 100%;
+            border-radius: 999px;
+            background: linear-gradient(90deg, var(--cyan-accent), #38e08a);
+            transition: width .6s cubic-bezier(.16, 1, .3, 1);
+        }
+        .enr-pay__summary {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.78rem;
+            color: var(--text-muted);
+        }
+        .enr-pay__summary b { color: var(--text-main); font-weight: 600; }
+        .enr-pay__summary b.is-ok { color: #38e08a; }
+
+        .enr-controls { display: flex; gap: 0.5rem; }
+        .enr-input {
+            flex: 1;
+            min-width: 0;
+            padding: 0.55rem 0.7rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-soft);
+            background: var(--bg-darker);
+            color: var(--text-main);
+            font-size: 0.82rem;
+        }
+        .enr-input::placeholder { color: var(--text-muted); }
+        .enr-input:focus { outline: none; border-color: var(--cyan-accent); box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.12); }
+        .enr-btn {
+            flex: 0 0 auto;
+            padding: 0.55rem 0.95rem;
+            border: none;
+            border-radius: 10px;
+            background: var(--orange);
+            color: var(--bg-darker);
+            font-weight: 700;
+            font-size: 0.78rem;
+            cursor: pointer;
+            transition: filter .2s ease, transform .1s ease;
+        }
+        .enr-btn:hover { filter: brightness(1.1); }
+        .enr-btn:active { transform: scale(0.97); }
+
+        @media (max-width: 480px) {
+            .enr-controls { flex-direction: column; }
+            .enr-btn { width: 100%; }
+        }
+
+        .team-logo {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #2a2a35;
+            object-fit: cover;
+            border: 2px solid var(--cyan-accent);
+            overflow: hidden;
+        }
+
+        .team-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .team-logo-placeholder {
+            font-family: 'Press Start 2P', cursive;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+        }
+
+        .card h3 {
+            margin: 0;
+            color: var(--text-main);
+            font-size: 1.2rem;
+        }
+
+        /* Enrollment Section */
+        .enrollment-wrapper {
+            display: none;
+            background: rgba(0, 240, 255, 0.05);
+            border: 1px solid var(--cyan-accent);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .enrollment-wrapper h3 {
+            margin-top: 0;
+            color: var(--cyan-accent);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Buscador del organizador: filtra el dropdown de franquicias por
+           nombre de equipo o capitán antes de inscribir. */
+        .enroll-search {
+            display: block;
+            width: 100%;
+            margin-bottom: 0.75rem;
+            padding: 0.7rem 1rem;
+            border-radius: 10px;
+            border: 1px solid var(--border-soft);
+            background: var(--bg-darker);
+            color: var(--text-main);
+            font-size: 0.9rem;
+        }
+        .enroll-search::placeholder { color: var(--text-muted); }
+        .enroll-search:focus {
+            outline: none;
+            border-color: var(--cyan-accent);
+            box-shadow: 0 0 0 3px rgba(0, 240, 255, 0.12);
+        }
+
+        /* Empty state de "sin franquicias": convierte un callejón sin salida
+           (solo texto) en una invitación con una acción clara y visible. El
+           botón se adapta a quién mira (visitante, capitán u organizador). */
+        .empty-state {
+            text-align: center;
+            background: rgba(0, 240, 255, 0.04);
+            border: 1px dashed var(--border-soft);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .empty-state-icon { line-height: 0; margin-bottom: 1rem; color: var(--cyan-accent); }
+        .empty-state-icon svg { width: 48px; height: 48px; display: inline-block; }
+
+        .empty-state-title {
+            margin: 0 0 0.5rem;
+            color: var(--text-main);
+            font-size: 1.3rem;
+        }
+
+        .empty-state-text {
+            color: var(--text-muted);
+            margin: 0 auto 1.75rem;
+            max-width: 440px;
+        }
+
+        /* El CTA del estado vacío es LA acción principal de la página, así que va
+           sólido con el gradiente naranja→magenta (mismo color de "acción
+           principal" que el resto de la app), no como botón de contorno. */
+        #empty-enroll-cta { text-decoration: none; border-color: transparent; box-shadow: 0 6px 18px var(--orange-glow); }
+        #empty-enroll-cta .btn-content { background: linear-gradient(135deg, var(--orange), var(--pink)); color: var(--bg-darker); }
+        #empty-enroll-cta:hover .btn-content { background: linear-gradient(135deg, var(--orange-2), var(--pink)); color: var(--bg-darker); filter: brightness(1.06); }
+
+        /* Breve resaltado del formulario al llegar desde el CTA del estado vacío. */
+        @keyframes enroll-flash {
+            0%, 100% { box-shadow: none; }
+            30% { box-shadow: 0 0 0 3px var(--cyan-accent); }
+        }
+        .enrollment-wrapper.flash { animation: enroll-flash 1.2s ease; }
+
+        /* Match Section */
+        .matches-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            margin-bottom: 3rem;
+        }
+
+        /* Selector segmentado: Por jugar / Jugados */
+        .match-tabs {
+            display: flex;
+            gap: 0.4rem;
+            width: fit-content;
+            margin: 0 auto 1.75rem;
+            padding: 0.35rem;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid var(--border-soft);
+            border-radius: 12px;
+        }
+        .match-tab {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.55rem;
+            padding: 0.6rem 1.2rem;
+            border: none;
+            border-radius: 9px;
+            background: transparent;
+            color: var(--text-muted);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.58rem;
+            cursor: pointer;
+            transition: color 0.15s, background 0.15s;
+        }
+        .match-tab:hover { color: var(--text-main); }
+        .match-tab.active {
+            background: linear-gradient(135deg, var(--orange), var(--pink));
+            color: var(--bg-darker);
+        }
+        .match-tab-count {
+            font-family: var(--font-data, inherit);
+            font-size: 0.72rem;
+            line-height: 1;
+            padding: 0.2rem 0.5rem;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            min-width: 1.5em;
+            text-align: center;
+        }
+        .match-tab.active .match-tab-count { background: rgba(0, 0, 0, 0.28); }
+
+        .match-card {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 4px solid var(--orange);
+            border-radius: 10px;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 1.1rem;
+        }
+
+        /* Bracket Styles — rediseño en rondas apiladas con conectores simples
+           (flecha centrada) en vez de líneas nth-child que asumían siempre
+           4/2/1 partidos exactos y se rompían con cualquier otro conteo. */
+        .bracket-container {
+            display: flex;
+            align-items: stretch;
+            justify-content: center;
+            gap: 0;
+            overflow-x: auto;
+            padding: 1rem 0 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .bracket-column {
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            width: 240px;
+        }
+
+        .bracket-column-title {
+            text-align: center;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.75rem;
+            color: var(--cyan-accent);
+            margin-bottom: 1.25rem;
+            text-transform: uppercase;
+            padding-bottom: 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .bracket-column-count {
+            color: var(--text-muted);
+            font-size: 0.65rem;
+        }
+
+        .bracket-column-matches {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 1.25rem;
+            flex: 1;
+        }
+
+        /* Conector entre rondas: una simple flecha centrada verticalmente,
+           siempre correcta sin importar cuántos partidos tenga cada columna. */
+        .bracket-connector {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.5rem;
+            flex-shrink: 0;
+            color: var(--text-muted);
+            font-size: 1.6rem;
+            margin-top: 2.5rem; /* alinea con el centro de las columnas, debajo del título */
+        }
+
+        .bracket-match {
+            background-color: var(--card-bg);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .bracket-match:hover {
+            transform: translateY(-2px);
+            border-color: var(--orange);
+        }
+
+        /* Badge de estado, arriba de cada partido — mismo lenguaje visual que
+           las tarjetas del calendario, para que se lea de un vistazo. */
+        .bracket-status {
+            align-self: center;
+            margin: 0.6rem 0 0.3rem;
+            padding: 0.15rem 0.6rem;
+            border-radius: 999px;
+            font-size: 0.6rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .bracket-status.is-done { background: rgba(0, 240, 255, 0.12); color: var(--cyan-accent); }
+        .bracket-status.is-pending { background: rgba(255, 255, 255, 0.08); color: var(--text-muted); }
+
+        .bracket-team {
+            display: flex;
+            align-items: center;
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            position: relative;
+        }
+        .bracket-team:last-child {
+            border-bottom: none;
+        }
+        /* Equipo ganador: se marca con fondo, borde y check — no solo con un
+           cambio sutil de color de texto, que era fácil de pasar por alto. */
+        .bracket-team.is-winner {
+            background: rgba(0, 240, 255, 0.08);
+            border-left: 3px solid var(--cyan-accent);
+        }
+        .bracket-team.is-winner .bracket-team-name {
+            color: var(--cyan-accent);
+            font-weight: 700;
+        }
+
+        .bracket-team-logo {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background-color: #333;
+            margin-right: 0.6rem;
+            object-fit: contain;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: bold;
+            color: white;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        .bracket-team-name {
+            flex: 1;
+            font-size: 0.85rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .bracket-team-score {
+            font-size: 0.95rem;
+            font-weight: bold;
+            min-width: 24px;
+            text-align: right;
+        }
+
+        .bracket-winner-tag {
+            color: var(--cyan-accent);
+            font-weight: 800;
+            margin-left: 0.4rem;
+            flex-shrink: 0;
+        }
+
+        .bracket-match-actions { padding: 0.6rem 0.75rem; }
+        .bracket-btn-start {
+            width: 100%;
+            padding: 0.5rem 0.8rem;
+            font-size: 0.62rem;
+            font-family: 'Press Start 2P', cursive;
+            background: linear-gradient(135deg, #00b09b, #96c93d);
+            color: #06110d;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .bracket-stats-hint {
+            text-align: center;
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            padding: 0 0 0.6rem;
+        }
+
+        /* Tarjeta fantasma: ronda aún no generada, esperando la anterior */
+        .bracket-match.is-placeholder {
+            align-items: center;
+            justify-content: center;
+            gap: 0.4rem;
+            padding: 1.5rem 1rem;
+            border-style: dashed;
+            border-color: rgba(255, 255, 255, 0.15);
+            box-shadow: none;
+            cursor: default;
+            color: var(--text-muted);
+            text-align: center;
+        }
+        .bracket-match.is-placeholder:hover { transform: none; border-color: rgba(255, 255, 255, 0.15); }
+        .bracket-placeholder-icon { font-size: 1.3rem; opacity: 0.6; }
+        .bracket-placeholder-text { font-size: 0.7rem; line-height: 1.4; }
+
+        /* --- Matchup: los equipos son el protagonista de la tarjeta --- */
+        .match-matchup {
+            display: flex;
+            align-items: center;
+            gap: 1.25rem;
+            width: 100%;
+            min-width: 0;
+        }
+
+        .match-side {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex: 1;
+            min-width: 0;
+        }
+        .match-side.away {
+            flex-direction: row-reverse;
+            text-align: right;
+        }
+
+        .match-logo {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background-color: #2a2a2a;
+            object-fit: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1rem;
+            color: var(--cyan-accent);
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .match-side-info {
+            min-width: 0;
+        }
+
+        .match-role {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.55rem;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 0.35rem;
+        }
+
+        .match-team-name {
+            font-size: 1.35rem;
+            font-weight: 800;
+            line-height: 1.1;
+            color: var(--text-main);
+            text-decoration: none;
+            display: block;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .match-team-name:hover { color: var(--cyan-accent); }
+
+        .match-vs {
+            color: var(--cyan-accent);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+        }
+
+        /* --- Meta: marcador, fecha y estado, centrados bajo el enfrentamiento --- */
+        .match-meta {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 0.6rem;
+        }
+
+        .match-when {
+            text-align: center;
+        }
+
+        .match-date {
+            color: var(--text-main);
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .match-score {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1.2rem;
+            background: rgba(0,0,0,0.5);
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            color: var(--orange);
+            border: 1px solid rgba(255, 87, 34, 0.2);
+            text-align: center;
+        }
+
+        .match-status {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 0.2rem;
+        }
+
+        /* Footer de acciones: separado por un divisor y centrado, para que los
+           botones no queden pegados a la izquierda al apilarse la tarjeta. */
+        .match-actions {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 0.6rem;
+            width: 100%;
+            padding-top: 1.1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .btn-match-action {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.6rem;
+            line-height: 1.3;
+            padding: 0.75rem 1.1rem;
+            min-width: 200px;
+            max-width: 100%;
+            text-align: center;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            transition: transform 0.15s, box-shadow 0.15s, background 0.15s;
+            white-space: nowrap;
+        }
+        @media (max-width: 420px) {
+            .btn-match-action { min-width: 0; flex: 1 1 auto; }
+        }
+        .btn-match-action.primary {
+            background: linear-gradient(135deg, var(--orange), var(--pink));
+            color: var(--bg-darker);
+            border-color: transparent;
+        }
+        .btn-match-action.primary:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 0 12px var(--orange-glow);
+        }
+        .btn-match-action.ghost {
+            background: transparent;
+            color: var(--cyan-accent);
+            border-color: var(--cyan-accent);
+        }
+        .btn-match-action.ghost:hover {
+            background: rgba(0, 229, 255, 0.12);
+        }
+
+        .btn-match-delete {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 6px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-muted);
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.15s;
+        }
+        .btn-match-delete:hover {
+            border-color: #ff4d4d;
+            color: #ff4d4d;
+            background: rgba(255, 77, 77, 0.12);
+        }
+        .btn-match-delete svg { width: 18px; height: 18px; }
+
+        /* Organizer Form */
+        .organizer-wrapper {
+            display: none;
+            background: rgba(255, 87, 34, 0.05);
+            border: 1px solid var(--orange);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 3rem;
+            /* Los .reveal hermanos (lista de partidos) crean su propio contexto de
+               apilamiento con transform, y al venir después en el DOM se pintaban
+               ENCIMA del popover de fecha, tapando el botón "Confirmar". Elevamos
+               este wrapper para que su popover flote por encima de la lista. */
+            position: relative;
+            z-index: 30;
+        }
+
+        .organizer-wrapper h3 {
+            margin-top: 0;
+            color: var(--orange);
+            font-family: 'Press Start 2P', cursive;
+            font-size: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Formulario de partido con campos etiquetados (Local / Visitante /
+           Fecha y hora), en vez de una fila de controles sin rótulo donde no se
+           sabía cuál equipo era cuál. Grid de 2 columnas que colapsa en móvil. */
+        .match-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1.1rem 1.25rem;
+            text-align: left;
+            align-items: end;
+        }
+
+        .match-field { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
+        .match-field label { margin: 0; }
+        .match-field select { width: 100%; }
+        .match-submit-field .btn-submit { margin-top: 0; }
+
+        @media (max-width: 640px) {
+            .match-form { grid-template-columns: 1fr; }
+        }
+
+        /* --- Selector de fecha y hora propio (tema synthwave) --- */
+        .dt-field { position: relative; }
+
+        .dt-trigger {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.8rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border-soft);
+            border-radius: 6px;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            font-size: 1rem;
+            cursor: pointer;
+            text-align: left;
+            transition: border-color var(--transition), box-shadow var(--transition);
+        }
+        .dt-trigger:hover, .dt-trigger.open {
+            border-color: var(--orange);
+            box-shadow: 0 0 12px var(--orange-glow);
+        }
+        .dt-trigger svg { width: 18px; height: 18px; color: var(--cyan-accent); flex-shrink: 0; }
+        .dt-trigger #dt-trigger-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dt-trigger .placeholder { color: var(--text-muted); }
+
+        .dt-popover {
+            position: absolute;
+            z-index: 60;
+            top: calc(100% + 0.5rem);
+            left: 0;
+            width: 300px;
+            max-width: calc(100vw - 2rem);
+            background: linear-gradient(160deg, var(--card-bg), var(--card-bg-2));
+            border: 1px solid var(--cyan-accent);
+            border-radius: var(--radius);
+            padding: 1rem;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6), 0 0 30px var(--cyan-glow);
+            animation: fade-in-up 0.2s ease;
+        }
+        .dt-popover[hidden] { display: none; }
+
+        .dt-cal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.75rem; }
+        .dt-month-label { font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; font-size: 0.9rem; }
+        .dt-nav {
+            background: transparent;
+            border: 1px solid var(--border-soft);
+            color: var(--text-main);
+            width: 30px; height: 30px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            line-height: 1;
+            transition: border-color var(--transition), color var(--transition);
+        }
+        .dt-nav:hover { border-color: var(--orange); color: var(--orange); }
+
+        .dt-weekdays, .dt-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+        .dt-weekdays { margin-bottom: 4px; }
+        .dt-weekdays span { text-align: center; font-size: 0.68rem; color: var(--text-muted); text-transform: uppercase; }
+
+        .dt-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            color: var(--text-main);
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: background var(--transition), color var(--transition);
+        }
+        .dt-day:hover:not(.dt-day-empty):not(:disabled) { background: rgba(255, 255, 255, 0.08); }
+        .dt-day:disabled, .dt-day-empty { color: var(--text-muted); opacity: 0.3; cursor: default; }
+        .dt-day.today { box-shadow: inset 0 0 0 1px var(--cyan-accent); }
+        .dt-day.selected {
+            background: linear-gradient(135deg, var(--orange), var(--pink));
+            color: var(--bg-darker);
+            font-weight: 800;
+        }
+
+        .dt-time-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 0.85rem;
+            padding-top: 0.85rem;
+            border-top: 1px solid var(--border-soft);
+        }
+        .dt-time-label { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); margin-right: auto; }
+        .dt-time-select { width: auto; min-width: 62px; padding: 0.4rem 0.5rem; }
+        .dt-colon { font-weight: 800; }
+
+        .dt-popover-actions { display: flex; justify-content: space-between; gap: 0.5rem; margin-top: 0.85rem; }
+        .dt-clear, .dt-confirm {
+            padding: 0.5rem 0.9rem;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 700;
+            font-family: var(--font-body);
+            font-size: 0.85rem;
+            transition: all var(--transition);
+        }
+        .dt-clear { background: transparent; border: 1px solid var(--border-soft); color: var(--text-muted); }
+        .dt-clear:hover { color: var(--text-main); border-color: var(--text-muted); }
+        .dt-confirm { background: var(--cyan-accent); border: 1px solid var(--cyan-accent); color: var(--bg-darker); }
+        .dt-confirm:hover { filter: brightness(1.1); box-shadow: 0 0 12px var(--cyan-glow); }
+        .dt-confirm:disabled { opacity: 0.5; cursor: not-allowed; filter: none; box-shadow: none; }
+
+        /* Tabla Retro */
+        .retro-table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--card-bg);
+            border: 1px solid var(--table-border);
+            text-align: left;
+        }
+
+        .retro-table th, .retro-table td {
+            padding: 1rem;
+            border-bottom: 1px solid var(--table-border);
+        }
+
+        .retro-table th {
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.7rem;
+            color: var(--cyan-accent);
+            text-transform: uppercase;
+        }
+
+        .retro-table tr:hover {
+            background-color: rgba(255, 255, 255, 0.05);
+        }
+
+        .retro-table td {
+            font-size: 1rem;
+        }
+
+        .team-inline {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 600;
+        }
+
+        .team-inline img {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 1px solid var(--cyan-accent);
+        }
+
+        .enroll-form {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .enroll-form select {
+            padding: 0.8rem 1rem;
+            border: 1px solid var(--cyan-accent);
+            background-color: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            font-size: 1rem;
+            min-width: 250px;
+            outline: none;
+        }
+
+        .message-box {
+            margin-top: 1rem;
+            font-weight: bold;
+        }
+
+        /* Modal Stats — misma estructura/ids que la lógica JS espera (display:none por defecto,
+           el script alterna style.display a 'flex'/'none'), restyled con vars del theme. */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(5, 3, 9, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 500;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background: linear-gradient(160deg, var(--card-bg), var(--card-bg-2));
+            border: 1px solid var(--cyan-accent);
+            border-radius: var(--radius);
+            padding: 2rem;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90vh;
+            overflow-y: auto;
+            position: relative;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7), 0 0 40px var(--purple-glow);
+        }
+
+        .modal-close {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: none;
+            border: none;
+            color: var(--text-main);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 2rem;
+        }
+
+        .stats-table th, .stats-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-soft);
+            text-align: center;
+        }
+
+        .stats-table th {
+            font-family: var(--font-arcade);
+            font-size: 0.6rem;
+            color: var(--orange);
+        }
+
+        .stats-table input {
+            width: 50px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--border-soft);
+            color: white;
+            padding: 0.3rem;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        /* ==================================================================
+           Navegación del torneo por secciones (panel lateral)
+           Objetivo: que cualquier persona, sin importar su nivel técnico,
+           encuentre "inscribir equipo", "ver calendario", "ver resultados" o
+           "playoffs" con un solo clic grande y bien etiquetado, en vez de
+           tener que hacer scroll por una página larga con todo mezclado.
+           ================================================================== */
+        .tournament-layout {
+            display: flex;
+            align-items: flex-start;
+            gap: 1.5rem;
+            margin-top: 1.25rem;
+        }
+
+        .tournament-sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            width: 250px;
+            flex-shrink: 0;
+            position: sticky;
+            top: 6.5rem;
+            background: var(--card-bg);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius);
+            padding: 0.75rem;
+        }
+
+        .side-tab {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+            padding: 0.85rem 1rem;
+            background: transparent;
+            border: none;
+            border-radius: 8px;
+            color: var(--text-muted);
+            font-family: var(--font-body);
+            text-align: left;
+            cursor: pointer;
+            transition: background-color var(--transition), color var(--transition);
+            width: 100%;
+        }
+
+        /* Íconos SVG monocromáticos que heredan el color del tema (currentColor):
+           cian neón en reposo, oscuro sobre el gradiente cuando la pestaña está
+           activa. Así siguen la paleta synthwave en vez de meter los colores
+           arbitrarios de un emoji del sistema operativo. */
+        .side-tab-icon { flex-shrink: 0; display: flex; color: var(--cyan-accent); transition: color var(--transition); }
+        .side-tab-icon svg { width: 22px; height: 22px; display: block; }
+        .side-tab.active .side-tab-icon { color: var(--bg-darker); }
+
+        .side-tab-text { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+        .side-tab-label { font-weight: 800; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .side-tab-hint { font-size: 0.75rem; color: inherit; opacity: 0.75; }
+
+        .side-tab:hover { background: rgba(255, 255, 255, 0.06); color: var(--text-main); }
+
+        .side-tab.active {
+            background: linear-gradient(135deg, var(--orange), var(--pink));
+            color: var(--bg-darker);
+            box-shadow: 0 6px 18px var(--orange-glow);
+        }
+        .side-tab.active .side-tab-hint { color: var(--bg-darker); opacity: 0.85; }
+
+        /* El panel de contenido comparte fondo, borde y radio con el sidebar
+           para que se lean como una sola unidad (antes flotaba transparente y
+           se sentía desconectado). */
+        .tournament-content {
+            flex: 1;
+            min-width: 0;
+            background: var(--card-bg);
+            border: 1px solid var(--border-soft);
+            border-radius: var(--radius);
+            padding: 1.75rem 2rem;
+        }
+
+        /* El último bloque de cada panel no arrastra su margen inferior: así el
+           padding del panel controla el espacio de abajo, sin vacío extra. */
+        .tab-panel > :last-child { margin-bottom: 0; }
+
+        .tab-panel { display: none; animation: fade-in-up 0.4s ease; }
+        .tab-panel.active { display: block; }
+
+        .tab-hint {
+            color: var(--text-main);
+            font-size: 1rem;
+            margin: 0 0 1.5rem;
+            padding: 0.85rem 1.15rem;
+            background: rgba(0, 240, 255, 0.07);
+            border-left: 3px solid var(--cyan-accent);
+            border-radius: 4px;
+        }
+
+        @media (max-width: 900px) {
+            .tournament-layout { flex-direction: column; margin-top: 1.5rem; }
+
+            .tournament-sidebar {
+                flex-direction: row;
+                width: 100%;
+                overflow-x: auto;
+                position: static;
+                gap: 0.6rem;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            .side-tab {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.4rem;
+                flex: 0 0 auto;
+                width: auto;
+                min-width: 84px;
+                padding: 0.75rem 0.6rem;
+            }
+
+            .side-tab-hint { display: none; }
+            .side-tab-label { font-size: 0.75rem; }
+        }
