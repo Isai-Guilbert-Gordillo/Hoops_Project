@@ -1,5 +1,9 @@
 /* RETRO HOOPS · perfil-jugador — estilos de página (extraídos del <style> inline; base en theme.css). */
 
+/* Reemplaza el onmouseover/onmouseout inline (removido por la CSP) */
+.opponent-link { color: inherit; text-decoration: none; }
+.opponent-link:hover { color: var(--cyan-accent); }
+
         /* Delta visual específico de perfil de jugador (no cubierto por theme.css) */
         .player-hero {
             display: flex;

@@ -13,6 +13,35 @@
                 .join(' ');
         };
 
+// ---- listeners delegados (reemplazan onclick/onerror inline, para poder
+// activar la CSP estricta de helmet) ----
+document.addEventListener('error', (e) => {
+    const img = e.target;
+    if (img.tagName !== 'IMG') return;
+    if (img.dataset.fallback === 'placeholder') {
+        img.outerHTML = `<span class="${img.dataset.fallbackClass}">${img.dataset.fallbackText}</span>`;
+    } else if (img.dataset.fallback === 'hide-clear') {
+        img.src = '';
+        img.style.display = 'none';
+    } else if (img.dataset.fallback === 'hide-sibling') {
+        img.style.display = 'none';
+        if (img.nextElementSibling) img.nextElementSibling.style.display = 'flex';
+    }
+}, true);
+
+document.addEventListener('click', (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+    if (action === 'navigate') {
+        window.location.href = el.dataset.href;
+    } else if (action === 'open-stats') {
+        window.openStatsModal(el.dataset.matchId);
+    } else if (action === 'delete-match') {
+        window.deleteMatch(el.dataset.matchId);
+    }
+});
+
 // ---- bloque inline #2 ----
         document.querySelectorAll('.side-tab').forEach(tabBtn => {
             tabBtn.addEventListener('click', () => {
@@ -267,7 +296,7 @@
 
                         const initial = (team.name || '?').trim().charAt(0).toUpperCase();
                         const logoHtml = team.logoUrl
-                            ? `<img src="${team.logoUrl}" alt="Logo ${team.name}" onerror="this.outerHTML='<span class=\\'enrolled-card__ph\\'>${initial}</span>'">`
+                            ? `<img src="${team.logoUrl}" alt="Logo ${team.name}" data-fallback="placeholder" data-fallback-class="enrolled-card__ph" data-fallback-text="${initial}">`
                             : `<span class="enrolled-card__ph">${initial}</span>`;
 
                         const cost = tournament.inscriptionFee || 0;
@@ -380,14 +409,14 @@
                             standings.forEach((s, index) => {
                                 const tr = document.createElement('tr');
                                 
-                                let logoHtml = s.logoUrl 
-                                    ? `<img src="${s.logoUrl}" alt="Logo" onerror="this.src=''; this.style.display='none';">` 
+                                let logoHtml = s.logoUrl
+                                    ? `<img src="${s.logoUrl}" alt="Logo" data-fallback="hide-clear">`
                                     : `<div style="width:30px; height:30px; border-radius:50%; background:#2a2a35; border:1px solid var(--cyan-accent); display:flex; align-items:center; justify-content:center; font-size:10px; font-family:'Press Start 2P'; color:var(--text-muted);">?</div>`;
 
                                 tr.innerHTML = `
                                     <td>${index + 1}</td>
                                     <td>
-                                        <div class="team-inline" onclick="window.location.href='/perfil-equipo.html?teamId=${s.teamId}'" style="cursor: pointer;">
+                                        <div class="team-inline" data-action="navigate" data-href="/perfil-equipo.html?teamId=${s.teamId}" style="cursor: pointer;">
                                             ${logoHtml}
                                             <a href="/perfil-equipo.html?teamId=${s.teamId}" style="color: inherit; text-decoration: none;">${s.teamName}</a>
                                         </div>
@@ -437,7 +466,7 @@
                         const renderMatchLogo = (team) => {
                             const initial = team.name.charAt(0).toUpperCase();
                             return team.logoUrl && team.logoUrl.trim() !== ''
-                                ? `<img src="${team.logoUrl}" class="match-logo" alt="${team.name}" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="match-logo" style="display:none;">${initial}</div>`
+                                ? `<img src="${team.logoUrl}" class="match-logo" alt="${team.name}" data-fallback="hide-sibling"><div class="match-logo" style="display:none;">${initial}</div>`
                                 : `<div class="match-logo">${initial}</div>`;
                         };
 
@@ -458,17 +487,17 @@
                             if (isPlayed) {
                                 scoreSection = `<div class="match-score">${match.homeScore} - ${match.awayScore}</div>`;
                                 if (isOrganizer) {
-                                    actionBtn = `<button class="btn-match-action ghost" onclick="window.openStatsModal('${match.id}')">Ver estadísticas</button>`;
+                                    actionBtn = `<button class="btn-match-action ghost" data-action="open-stats" data-match-id="${match.id}">Ver estadísticas</button>`;
                                 }
                             } else if (match.status === 'SCHEDULED' && isOrganizer) {
                                 // Sin caja de marcador vacía ("-"): el estado "Programado" ya lo
                                 // comunica y esa caja se confundía con un botón. Acción compacta.
-                                actionBtn = `<button class="btn-match-action primary" onclick="window.location.href='/mesa-control.html?matchId=${match.id}'">▶ Iniciar partido</button>`;
+                                actionBtn = `<button class="btn-match-action primary" data-action="navigate" data-href="/mesa-control.html?matchId=${match.id}">▶ Iniciar partido</button>`;
                             }
 
                             // Cancelar partido (bote de basura): solo el organizador y solo si aún no se jugó
                             if (isOrganizer && !isPlayed) {
-                                deleteBtn = `<button class="btn-match-delete" title="Cancelar partido" aria-label="Cancelar partido" onclick="window.deleteMatch('${match.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
+                                deleteBtn = `<button class="btn-match-delete" title="Cancelar partido" aria-label="Cancelar partido" data-action="delete-match" data-match-id="${match.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
                             }
 
                             const actionsRow = (actionBtn || deleteBtn)
@@ -570,7 +599,7 @@
 
                         const formatLogo = (team) => {
                             return team.logoUrl && team.logoUrl.trim() !== ''
-                                ? `<img src="${team.logoUrl}" class="bracket-team-logo" alt="logo" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"><div class="bracket-team-logo" style="display:none;">${team.name.charAt(0).toUpperCase()}</div>`
+                                ? `<img src="${team.logoUrl}" class="bracket-team-logo" alt="logo" data-fallback="hide-sibling"><div class="bracket-team-logo" style="display:none;">${team.name.charAt(0).toUpperCase()}</div>`
                                 : `<div class="bracket-team-logo">${team.name.charAt(0).toUpperCase()}</div>`;
                         };
 
@@ -600,7 +629,7 @@
                             if (match.status === 'SCHEDULED' && isOrganizer) {
                                 scoreInputs = `
                                     <div class="bracket-match-actions">
-                                        <button class="bracket-btn-start" onclick="window.location.href='/mesa-control.html?matchId=${match.id}'; event.stopPropagation();">▶ Iniciar (Mesa)</button>
+                                        <button class="bracket-btn-start">▶ Iniciar (Mesa)</button>
                                     </div>
                                 `;
                             }
@@ -625,6 +654,18 @@
                                 ${scoreInputs}
                                 ${showStatsMsg}
                             `;
+
+                            // Listener directo (no delegado) para que stopPropagation
+                            // funcione: bMatch tiene su propio listener de click (arriba)
+                            // que abriría el modal de stats si el clic burbujea hasta él.
+                            const startBtn = bMatch.querySelector('.bracket-btn-start');
+                            if (startBtn) {
+                                startBtn.addEventListener('click', (e) => {
+                                    e.stopPropagation();
+                                    window.location.href = `/mesa-control.html?matchId=${match.id}`;
+                                });
+                            }
+
                             col.appendChild(bMatch);
                         };
 
@@ -1163,7 +1204,8 @@
                     cta.href = '/login.html';
                     cta.style.display = 'inline-flex';
                 } else if (isOrganizer) {
-                    const copyInviteLink = async () => {
+                    const copyInviteLink = async (e) => {
+                        e.preventDefault();
                         try {
                             await navigator.clipboard.writeText(window.location.href);
                             showToast('Enlace copiado al portapapeles', 'success');
@@ -1176,9 +1218,10 @@
                         // Acción principal: inscribir una franquicia directamente en la liga.
                         emptyText.textContent = 'Inscribe una franquicia al torneo, o comparte el enlace para que los capitanes se unan.';
                         ctaText.textContent = '➕ Inscribir una franquicia';
-                        cta.href = 'javascript:void(0)';
+                        cta.href = '#';
                         cta.style.display = 'inline-flex';
-                        cta.addEventListener('click', () => {
+                        cta.addEventListener('click', (e) => {
+                            e.preventDefault();
                             const section = document.getElementById('enrollment-section');
                             if (section) {
                                 section.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1191,7 +1234,7 @@
                         });
                         // Acción secundaria: copiar el enlace de invitación.
                         const secondary = document.createElement('a');
-                        secondary.href = 'javascript:void(0)';
+                        secondary.href = '#';
                         secondary.textContent = '🔗 Copiar enlace de invitación';
                         secondary.style.cssText = 'display:block; margin-top:1rem; color:var(--cyan,#00f0ff); font-family:var(--font-data,inherit); font-size:0.8rem; cursor:pointer;';
                         secondary.addEventListener('click', copyInviteLink);
@@ -1200,7 +1243,7 @@
                         // No hay ninguna franquicia registrada todavía: invitar capitanes.
                         emptyText.textContent = 'Aún no hay franquicias registradas. Comparte el enlace para que los capitanes creen e inscriban su equipo.';
                         ctaText.textContent = '🔗 Copiar enlace de invitación';
-                        cta.href = 'javascript:void(0)';
+                        cta.href = '#';
                         cta.style.display = 'inline-flex';
                         cta.addEventListener('click', copyInviteLink);
                     }
@@ -1208,9 +1251,10 @@
                     // Capitán con franquicia disponible: llevarlo al formulario de inscripción.
                     emptyText.textContent = 'Sé el primero en unirte a este torneo.';
                     ctaText.textContent = '➕ Inscribir mi franquicia';
-                    cta.href = 'javascript:void(0)';
+                    cta.href = '#';
                     cta.style.display = 'inline-flex';
-                    cta.addEventListener('click', () => {
+                    cta.addEventListener('click', (e) => {
+                        e.preventDefault();
                         const section = document.getElementById('enrollment-section');
                         if (section) {
                             section.scrollIntoView({ behavior: 'smooth', block: 'center' });

@@ -1,5 +1,12 @@
 /* RETRO HOOPS · perfil-equipo — estilos de página (extraídos del <style> inline; base en theme.css). */
 
+/* Reemplaza los onmouseover/onmouseout inline (removidos por la CSP) */
+.roster-player-link { color: inherit; text-decoration: none; cursor: pointer; }
+.roster-player-link:hover { color: var(--cyan-accent); }
+
+.opponent-link { text-decoration: none; color: var(--text-muted); transition: color 0.3s; }
+.opponent-link:hover { color: var(--orange); }
+
         /* Delta visual específico de perfil de equipo (no cubierto por theme.css) */
         .team-hero {
             display: flex;

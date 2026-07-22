@@ -1,5 +1,13 @@
 // RETRO HOOPS · estadisticas — lógica de página (extraída del <script> inline).
 
+        document.addEventListener('error', (e) => {
+            const img = e.target;
+            if (img.tagName === 'IMG' && img.dataset.fallback === 'hide') {
+                img.src = '';
+                img.style.display = 'none';
+            }
+        }, true);
+
         document.addEventListener('DOMContentLoaded', async () => {
             // Función para renderizar filas
             const renderTable = (tbodyId, data, statKey) => {
@@ -19,7 +27,7 @@
                     const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
 
                     let logoHtml = p.logoUrl
-                        ? `<img src="${p.logoUrl}" class="team-logo" alt="Logo" onerror="this.src=''; this.style.display='none';">`
+                        ? `<img src="${p.logoUrl}" class="team-logo" alt="Logo" data-fallback="hide">`
                         : `<div class="team-logo">?</div>`;
 
                     tr.innerHTML = `

@@ -16,13 +16,13 @@
             </div>
 
             <div class="clock-section">
-                <div class="quarter-badge" id="quarter-display" onclick="nextQuarter()">Q1</div>
+                <div class="quarter-badge" id="quarter-display">Q1</div>
                 <div class="clock-time" id="clock-display">10:00</div>
                 <div class="clock-controls">
-                    <button class="btn btn-cyan" id="btn-start" onclick="startClock()"><span class="btn-content">▶ START</span></button>
-                    <button class="btn btn-danger" id="btn-pause" onclick="pauseClock()"><span class="btn-content">⏸ PAUSE</span></button>
+                    <button class="btn btn-cyan" id="btn-start"><span class="btn-content">▶ START</span></button>
+                    <button class="btn btn-danger" id="btn-pause"><span class="btn-content">⏸ PAUSE</span></button>
                 </div>
-                <button class="btn btn-solid-gold btn-sm" id="btn-undo-point" onclick="undoLastPoint()" disabled>
+                <button class="btn btn-solid-gold btn-sm" id="btn-undo-point" disabled>
                     <span class="btn-content">↩ ANULAR PUNTO</span>
                 </button>
             </div>
@@ -45,7 +45,7 @@
     </main>
 
     <footer class="control-footer">
-        <button class="btn btn-danger btn-scoreboard" onclick="finishMatchAndSave()"><span class="btn-content">TERMINAR PARTIDO Y GUARDAR</span></button>
+        <button class="btn btn-danger btn-scoreboard" id="btn-finish-match"><span class="btn-content">TERMINAR PARTIDO Y GUARDAR</span></button>
     </footer>
 
     <!-- Script de Toast Externo -->

@@ -14,11 +14,23 @@ const app = express();
 const port = process.env.PORT || 3000;
 const prisma = new PrismaClient();
 
-// Headers de seguridad HTTP. CSP desactivada por ahora: varias vistas (p. ej.
-// mesa-control.ejs) usan onclick="" inline, que la CSP estricta por defecto
-// de helmet bloquearía. Activarla requiere antes migrar esos handlers a
-// addEventListener (pendiente, ver checklist de producción).
-app.use(helmet({ contentSecurityPolicy: false }));
+// Headers de seguridad HTTP, incluida una CSP real. script-src queda estricto
+// ('self', sin inline ni eval) porque ya no quedan onclick="" ni <script>
+// inline en las vistas. style-src sí necesita 'unsafe-inline': todavía hay
+// atributos style="" inline en varias vistas (deuda aparte, no se resuelve
+// acá) además de la hoja de Google Fonts.
+app.use(helmet({
+    contentSecurityPolicy: {
+        directives: {
+            defaultSrc: ["'self'"],
+            scriptSrc: ["'self'"],
+            styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+            fontSrc: ["'self'", 'https://fonts.gstatic.com'],
+            imgSrc: ["'self'", 'data:'],
+            connectSrc: ["'self'"]
+        }
+    }
+}));
 
 // Límite general para toda la API: 300 solicitudes cada 15 min por IP.
 const apiLimiter = rateLimit({

@@ -174,18 +174,35 @@
                             <div class="stat-chip stat-foul"><span class="stat-value" data-stat="foul">0</span><span class="stat-label">F</span></div>
                         </div>
                         <div class="action-buttons">
-                            <button class="action-btn pts-btn" onclick="addStat('${p.id}', 'pts', 1, '${teamType}')">+1</button>
-                            <button class="action-btn pts-btn" onclick="addStat('${p.id}', 'pts', 2, '${teamType}')">+2</button>
-                            <button class="action-btn pts-btn" onclick="addStat('${p.id}', 'pts', 3, '${teamType}')">+3</button>
-                            <button class="action-btn reb-btn" onclick="addStat('${p.id}', 'reb', 1, '${teamType}')">REB</button>
-                            <button class="action-btn ast-btn" onclick="addStat('${p.id}', 'ast', 1, '${teamType}')">AST</button>
-                            <button class="action-btn foul-btn" onclick="addStat('${p.id}', 'foul', 1, '${teamType}')">F</button>
+                            <button class="action-btn pts-btn" data-player-id="${p.id}" data-stat="pts" data-value="1" data-team="${teamType}">+1</button>
+                            <button class="action-btn pts-btn" data-player-id="${p.id}" data-stat="pts" data-value="2" data-team="${teamType}">+2</button>
+                            <button class="action-btn pts-btn" data-player-id="${p.id}" data-stat="pts" data-value="3" data-team="${teamType}">+3</button>
+                            <button class="action-btn reb-btn" data-player-id="${p.id}" data-stat="reb" data-value="1" data-team="${teamType}">REB</button>
+                            <button class="action-btn ast-btn" data-player-id="${p.id}" data-stat="ast" data-value="1" data-team="${teamType}">AST</button>
+                            <button class="action-btn foul-btn" data-player-id="${p.id}" data-stat="foul" data-value="1" data-team="${teamType}">F</button>
                         </div>
                     </div>
                 `;
                 container.appendChild(row);
             });
         }
+
+        // Wiring de botones (sin onclick inline, para poder activar la CSP de helmet).
+        document.getElementById('quarter-display').addEventListener('click', nextQuarter);
+        document.getElementById('btn-start').addEventListener('click', startClock);
+        document.getElementById('btn-pause').addEventListener('click', pauseClock);
+        document.getElementById('btn-undo-point').addEventListener('click', undoLastPoint);
+        document.getElementById('btn-finish-match').addEventListener('click', finishMatchAndSave);
+
+        // Los botones de stats (+1/+2/+3/REB/AST/F) se recrean cada vez que se
+        // renderiza un roster, así que en vez de atar un listener por botón se
+        // delega en document y se lee la data del botón clickeado.
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('.action-btn');
+            if (!btn) return;
+            const { playerId, stat, value, team } = btn.dataset;
+            addStat(playerId, stat, parseInt(value, 10), team);
+        });
 
         // Init
         window.onload = async () => {

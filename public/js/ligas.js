@@ -4,6 +4,16 @@
         let sessionUser = null;
         let allTournaments = [];
 
+        document.addEventListener('click', (e) => {
+            const el = e.target.closest('[data-action]');
+            if (!el) return;
+            const id = el.dataset.tournamentId;
+            if (el.dataset.action === 'edit-tournament') window.editTournament(id);
+            else if (el.dataset.action === 'manage-players') window.managePlayers(id);
+            else if (el.dataset.action === 'delete-tournament') window.deleteTournament(id);
+            else if (el.dataset.action === 'open-tournament') window.location.href = `/torneo.html?id=${id}`;
+        });
+
         document.addEventListener('DOMContentLoaded', async () => {
             const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -87,17 +97,17 @@
                         adminButtons = `
                             <div class="lg-card__actions">
                                 <div class="lg-card__btns">
-                                    <button onclick="window.editTournament('${torneo.id}')" class="lg-btn-secondary lg-btn-sm">Editar</button>
-                                    <button onclick="window.managePlayers('${torneo.id}')" class="lg-btn-primary lg-btn-sm">Inscritos</button>
+                                    <button data-action="edit-tournament" data-tournament-id="${torneo.id}" class="lg-btn-secondary lg-btn-sm">Editar</button>
+                                    <button data-action="manage-players" data-tournament-id="${torneo.id}" class="lg-btn-primary lg-btn-sm">Inscritos</button>
                                 </div>
-                                <button onclick="window.deleteTournament('${torneo.id}')" class="lg-btn-danger">Eliminar</button>
+                                <button data-action="delete-tournament" data-tournament-id="${torneo.id}" class="lg-btn-danger">Eliminar</button>
                             </div>`;
                     }
 
                     const tarjeta = document.createElement('div');
                     tarjeta.className = 'lg-card rise';
                     tarjeta.innerHTML = `
-                        <div class="lg-card__body" onclick="window.location.href='/torneo.html?id=${torneo.id}'">
+                        <div class="lg-card__body" data-action="open-tournament" data-tournament-id="${torneo.id}">
                             <span class="lg-status ${status.className}">${status.text}</span>
                             <h3 class="lg-card__name">${torneo.name}</h3>
                             <dl class="lg-card__meta">

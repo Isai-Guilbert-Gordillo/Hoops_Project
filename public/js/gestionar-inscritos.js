@@ -1,5 +1,11 @@
 // RETRO HOOPS · gestionar-inscritos — lógica de página (extraída del <script> inline).
 
+        document.addEventListener('click', (e) => {
+            const btn = e.target.closest('[data-action="remove-enrollment"]');
+            if (!btn) return;
+            removeEnrollment(btn.dataset.enrollId);
+        });
+
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const tournamentId = urlParams.get('tournamentId');
@@ -39,7 +45,7 @@
                         <td style="color: var(--cyan-accent);">${enroll.status}</td>
                         <td style="color: var(--text-muted); font-size: 0.9rem;">${formattedDate}</td>
                         <td>
-                            <button class="btn btn-danger btn-sm" onclick="removeEnrollment('${enroll.id}')"><span class="btn-content">Dar de Baja</span></button>
+                            <button class="btn btn-danger btn-sm" data-action="remove-enrollment" data-enroll-id="${enroll.id}"><span class="btn-content">Dar de Baja</span></button>
                         </td>
                     `;
                     tbody.appendChild(tr);

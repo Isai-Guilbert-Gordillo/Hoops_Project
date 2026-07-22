@@ -88,7 +88,7 @@
                         tr.innerHTML = `
                             <td style="font-size: 0.85rem; color: var(--text-muted);">${dateStr}</td>
                             <td>
-                                <a href="/perfil-equipo.html?teamId=${opponent.id}" style="color: inherit; text-decoration: none;" onmouseover="this.style.color='var(--cyan-accent)'" onmouseout="this.style.color='inherit'">
+                                <a href="/perfil-equipo.html?teamId=${opponent.id}" class="opponent-link">
                                     vs ${opponent.name}
                                 </a>
                             </td>

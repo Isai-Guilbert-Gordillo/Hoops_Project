@@ -1,5 +1,17 @@
 // RETRO HOOPS · admin — lógica de página (extraída del <script> inline).
 
+        document.addEventListener('click', (e) => {
+            const delBtn = e.target.closest('[data-action="delete-user"]');
+            if (delBtn) {
+                window.deleteUser(delBtn.dataset.userId, delBtn.dataset.userName);
+                return;
+            }
+            const roleBtn = e.target.closest('[data-action="change-role"]');
+            if (roleBtn) {
+                window.changeRole(roleBtn.dataset.userId, roleBtn.dataset.role);
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', async () => {
             const token = localStorage.getItem('kphoops_token');
             const userName = localStorage.getItem('kphoops_user_name');
@@ -63,8 +75,9 @@
                         // sobre uno mismo ni sobre otro ADMIN, ambos bloqueados también
                         // en el backend). Elimina en cascada torneos, franquicias,
                         // jugadores, inscripciones y partidos asociados a ese usuario.
+                        const safeUserName = capitalizeName(user.firstName + ' ' + user.lastName).replace(/"/g, '&quot;');
                         const deleteBtn = (!isSelf && user.role !== 'ADMIN')
-                            ? `<button class="btn btn-danger btn-sm" onclick="deleteUser('${user.id}', '${capitalizeName(user.firstName + ' ' + user.lastName).replace(/'/g, "\\'")}')"><span class="btn-content">Eliminar Usuario</span></button>`
+                            ? `<button class="btn btn-danger btn-sm" data-action="delete-user" data-user-id="${user.id}" data-user-name="${safeUserName}"><span class="btn-content">Eliminar Usuario</span></button>`
                             : '';
 
                         let actions = '';
@@ -72,18 +85,18 @@
                             actions = '<span style="color: var(--text-muted); font-size: 0.8rem;">No puedes cambiar tu propio rol</span>';
                         } else if (user.role === 'ADMIN') {
                             actions = `<div class="role-actions">
-                                <button class="btn btn-danger btn-sm" onclick="changeRole('${user.id}', 'PLAYER')"><span class="btn-content">Quitar Admin</span></button>
+                                <button class="btn btn-danger btn-sm" data-action="change-role" data-user-id="${user.id}" data-role="PLAYER"><span class="btn-content">Quitar Admin</span></button>
                             </div>`;
                         } else if (user.role === 'ORGANIZER') {
                             actions = `<div class="role-actions">
-                                <button class="btn btn-danger btn-sm" onclick="changeRole('${user.id}', 'PLAYER')"><span class="btn-content">Quitar Organizador</span></button>
-                                <button class="btn btn-solid-gold btn-sm" onclick="changeRole('${user.id}', 'ADMIN')"><span class="btn-content">Hacer Admin</span></button>
+                                <button class="btn btn-danger btn-sm" data-action="change-role" data-user-id="${user.id}" data-role="PLAYER"><span class="btn-content">Quitar Organizador</span></button>
+                                <button class="btn btn-solid-gold btn-sm" data-action="change-role" data-user-id="${user.id}" data-role="ADMIN"><span class="btn-content">Hacer Admin</span></button>
                                 ${deleteBtn}
                             </div>`;
                         } else {
                             actions = `<div class="role-actions">
-                                <button class="btn btn-cyan btn-sm" onclick="changeRole('${user.id}', 'ORGANIZER')"><span class="btn-content">Hacer Organizador</span></button>
-                                <button class="btn btn-solid-gold btn-sm" onclick="changeRole('${user.id}', 'ADMIN')"><span class="btn-content">Hacer Admin</span></button>
+                                <button class="btn btn-cyan btn-sm" data-action="change-role" data-user-id="${user.id}" data-role="ORGANIZER"><span class="btn-content">Hacer Organizador</span></button>
+                                <button class="btn btn-solid-gold btn-sm" data-action="change-role" data-user-id="${user.id}" data-role="ADMIN"><span class="btn-content">Hacer Admin</span></button>
                                 ${deleteBtn}
                             </div>`;
                         }

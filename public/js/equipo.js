@@ -14,6 +14,30 @@
             }
         }
 
+        // Fallbacks de imagen rota y acciones dinámicas (roster/inscripción), sin
+        // handlers inline: 'error' no burbujea, se escucha en fase de captura.
+        document.addEventListener('error', (e) => {
+            const img = e.target;
+            if (img.tagName !== 'IMG') return;
+            if (img.dataset.fallback === 'team-logo') {
+                img.outerHTML = '?';
+            } else if (img.dataset.fallback === 'player-photo') {
+                img.parentElement.innerHTML = '?';
+            }
+        }, true);
+
+        document.addEventListener('click', (e) => {
+            const deleteBtn = e.target.closest('[data-action="delete-player"]');
+            if (deleteBtn) {
+                deletePlayer(deleteBtn.dataset.playerId, deleteBtn.dataset.playerName);
+                return;
+            }
+            const enrollBtn = e.target.closest('[data-action="enroll"]');
+            if (enrollBtn && window.enrollInTournament) {
+                window.enrollInTournament(enrollBtn.dataset.tournamentId);
+            }
+        });
+
         document.addEventListener('DOMContentLoaded', async () => {
             // Navbar session checking
             const token = localStorage.getItem('kphoops_token');
@@ -65,7 +89,7 @@
 
                 const logoContainer = document.getElementById('team-logo');
                 if (team.logoUrl) {
-                    logoContainer.innerHTML = `<img src="${team.logoUrl}" alt="Logo" onerror="this.outerHTML='?'">`;
+                    logoContainer.innerHTML = `<img src="${team.logoUrl}" alt="Logo" data-fallback="team-logo">`;
                 } else {
                     logoContainer.innerText = '?';
                 }
@@ -88,13 +112,13 @@
                     team.players.forEach(player => {
                         const tr = document.createElement('tr');
                         const photoHtml = player.photoUrl
-                            ? `<div class="player-photo"><img src="${player.photoUrl}" alt="${player.name}" onerror="this.parentElement.innerHTML='?'"></div>`
+                            ? `<div class="player-photo"><img src="${player.photoUrl}" alt="${player.name}" data-fallback="player-photo"></div>`
                             : `<div class="player-photo">?</div>`;
                         tr.innerHTML = `
                             <td class="jersey">#${player.jerseyNumber}</td>
                             <td><div class="player-cell">${photoHtml}<span>${player.name}</span></div></td>
                             <td>${player.position}</td>
-                            ${isCaptain ? `<td><button class="btn btn-danger btn-sm" onclick="deletePlayer('${player.id}', '${player.name.replace(/'/g, "\\'")}')"><span class="btn-content">Eliminar</span></button></td>` : ''}
+                            ${isCaptain ? `<td><button class="btn btn-danger btn-sm" data-action="delete-player" data-player-id="${player.id}" data-player-name="${player.name.replace(/"/g, '&quot;')}"><span class="btn-content">Eliminar</span></button></td>` : ''}
                         `;
                         rosterBody.appendChild(tr);
                     });
@@ -151,7 +175,7 @@
                             <h3>${t.name}</h3>
                             <p>${t.category} · ${t.venue || 'Sede por definir'}</p>
                             <p>Organiza: ${t.organizer ? capitalizeName(`${t.organizer.firstName} ${t.organizer.lastName}`) : '—'}</p>
-                            <button type="button" class="btn-submit" onclick="enrollInTournament('${t.id}')">Inscribirme</button>
+                            <button type="button" class="btn-submit" data-action="enroll" data-tournament-id="${t.id}">Inscribirme</button>
                         </div>
                     `).join('');
                 } catch (err) {

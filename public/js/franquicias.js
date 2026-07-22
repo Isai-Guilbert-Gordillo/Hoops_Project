@@ -35,6 +35,16 @@
             })(startAt);
         }
 
+        // Fallback de logo roto (equivalente al onerror inline; 'error' no
+        // burbujea, se escucha en fase de captura sobre document).
+        document.addEventListener('error', (e) => {
+            const img = e.target;
+            if (img.tagName === 'IMG' && img.dataset.fallback === 'team-logo') {
+                img.parentElement.classList.add('is-fallback');
+                img.outerHTML = `<span class="team-logo-placeholder">${img.dataset.fallbackText}</span>`;
+            }
+        }, true);
+
         document.addEventListener('DOMContentLoaded', async () => {
             // Sesión: define si se muestran los botones Editar/Eliminar
             try {
@@ -270,7 +280,7 @@
                 // Escudo: imagen si existe, si no la inicial sobre gradiente
                 const initial = (team.name || '?').trim().charAt(0).toUpperCase();
                 const logoHtml = team.logoUrl
-                    ? `<div class="team-logo"><img src="${team.logoUrl}" alt="Logo ${team.name}" onerror="this.parentElement.classList.add('is-fallback'); this.outerHTML='<span class=\\'team-logo-placeholder\\'>${initial}</span>'"></div>`
+                    ? `<div class="team-logo"><img src="${team.logoUrl}" alt="Logo ${team.name}" data-fallback="team-logo" data-fallback-text="${initial}"></div>`
                     : `<div class="team-logo is-fallback"><span class="team-logo-placeholder">${initial}</span></div>`;
 
                 const captainStr = team.captain
@@ -285,13 +295,13 @@
                 if (isCaptain) {
                     actionsHtml = `
                         <div class="team-card-actions">
-                            <button class="btn-pill btn-pill--cyan" onclick="editTeam(event, '${team.id}')">Editar</button>
-                            <button class="btn-pill btn-pill--danger" onclick="deleteTeam(event, '${team.id}')">Eliminar</button>
+                            <button class="btn-pill btn-pill--cyan" data-action="edit-team">Editar</button>
+                            <button class="btn-pill btn-pill--danger" data-action="delete-team">Eliminar</button>
                         </div>`;
                 } else if (isModerator) {
                     actionsHtml = `
                         <div class="team-card-actions">
-                            <button class="btn-pill btn-pill--danger" onclick="deleteTeam(event, '${team.id}')">Eliminar</button>
+                            <button class="btn-pill btn-pill--danger" data-action="delete-team">Eliminar</button>
                         </div>`;
                 }
 
@@ -310,6 +320,15 @@
                     </div>
                     ${actionsHtml}
                 `;
+
+                // Listeners directos (no delegados) para que event.stopPropagation()
+                // llegue a tiempo: card tiene su propio onclick que navegaría al
+                // perfil del equipo si el clic burbujea hasta él.
+                const editBtn = card.querySelector('[data-action="edit-team"]');
+                if (editBtn) editBtn.addEventListener('click', (e) => editTeam(e, team.id));
+                const deleteBtn = card.querySelector('[data-action="delete-team"]');
+                if (deleteBtn) deleteBtn.addEventListener('click', (e) => deleteTeam(e, team.id));
+
                 container.appendChild(card);
             });
         }

@@ -1,5 +1,14 @@
 // RETRO HOOPS · perfil-equipo — lógica de página (extraída del <script> inline).
 
+        // Fallback de imágenes rotas (equivalente a los onerror inline; 'error'
+        // no burbujea, por eso se escucha en fase de captura sobre document).
+        document.addEventListener('error', (e) => {
+            const img = e.target;
+            if (img.tagName === 'IMG' && img.dataset.fallback === 'team-logo') {
+                img.outerHTML = '<div class="team-logo-large">?</div>';
+            }
+        }, true);
+
         document.addEventListener('DOMContentLoaded', async () => {
             // Manejo de UI Navbar
             const token = localStorage.getItem('kphoops_token');
@@ -45,8 +54,8 @@
                 // -------------- SECTION 1: HEADER --------------
                 document.getElementById('team-name').innerText = team.name;
 
-                let logoHtml = team.logoUrl 
-                    ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo" onerror="this.outerHTML='<div class=\\'team-logo-large\\'>?</div>';">`
+                let logoHtml = team.logoUrl
+                    ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo" data-fallback="team-logo">`
                     : `<div class="team-logo-large">${team.name.charAt(0).toUpperCase()}</div>`;
                 document.getElementById('team-logo-container').innerHTML = logoHtml;
 
@@ -78,7 +87,7 @@
                         tr.innerHTML = `
                             <td style="color: var(--cyan-accent); font-weight: bold;">${p.jerseyNumber}</td>
                             <td style="font-weight: 600;">
-                                <a href="perfil-jugador.html?playerId=${p.id}" style="color: inherit; text-decoration: none; cursor: pointer;" onmouseover="this.style.color='var(--cyan-accent)'" onmouseout="this.style.color='inherit'">
+                                <a href="perfil-jugador.html?playerId=${p.id}" class="roster-player-link">
                                     ${p.name}
                                 </a>
                             </td>
@@ -140,9 +149,9 @@
                                         ${mDate} a las ${mTime}
                                     </div>
                                     <div class="match-teams">
-                                        ${isHome ? `<span style="color: var(--text-main);">${team.name}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" style="text-decoration: none; color: var(--text-muted); transition: color 0.3s;" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text-muted)'">${oppName}</a>`}
+                                        ${isHome ? `<span style="color: var(--text-main);">${team.name}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" class="opponent-link">${oppName}</a>`}
                                         <span class="match-vs">VS</span>
-                                        ${!isHome ? `<span style="color: var(--text-main);">${team.name}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" style="text-decoration: none; color: var(--text-muted); transition: color 0.3s;" onmouseover="this.style.color='var(--orange)'" onmouseout="this.style.color='var(--text-muted)'">${oppName}</a>`}
+                                        ${!isHome ? `<span style="color: var(--text-main);">${team.name}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" class="opponent-link">${oppName}</a>`}
                                     </div>
                                 </div>
                                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">
