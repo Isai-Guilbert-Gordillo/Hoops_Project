@@ -6,11 +6,38 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 
 const app = express();
 const port = process.env.PORT || 3000;
 const prisma = new PrismaClient();
+
+// Headers de seguridad HTTP. CSP desactivada por ahora: varias vistas (p. ej.
+// mesa-control.ejs) usan onclick="" inline, que la CSP estricta por defecto
+// de helmet bloquearía. Activarla requiere antes migrar esos handlers a
+// addEventListener (pendiente, ver checklist de producción).
+app.use(helmet({ contentSecurityPolicy: false }));
+
+// Límite general para toda la API: 300 solicitudes cada 15 min por IP.
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 300,
+    standardHeaders: true,
+    legacyHeaders: false
+});
+app.use('/api', apiLimiter);
+
+// Límite más estricto en login/registro para dificultar fuerza bruta:
+// 10 intentos cada 15 min por IP.
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiados intentos. Probá de nuevo en unos minutos.' }
+});
 // El secreto vive en .env (JWT_SECRET). El fallback evita romper el arranque en
 // desarrollo si la variable no está definida; en producción DEBE estar en .env.
 const JWT_SECRET = process.env.JWT_SECRET || 'kphoops_super_secret_key_2026';
@@ -1482,7 +1509,7 @@ app.post('/api/teams/register-captain', async (req, res) => {
 });
 
 // Ruta real para registro de usuario con bcrypt y JWT
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
         const { email, password, firstName, lastName } = req.body;
         
@@ -1514,7 +1541,7 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 // Ruta real para login de usuario con JWT
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', authLimiter, async (req, res) => {
     try {
         const { email, password } = req.body;
 
