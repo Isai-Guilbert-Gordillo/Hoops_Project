@@ -22,14 +22,24 @@ estadísticas en tiempo real.
 
 ## 💻 Stack Tecnológico
 
-**Backend:** Node.js + Express.js  
-**Base de Datos:** MongoDB  
-**Frontend:** React  
-**Autenticación:** JWT  
-**Middleware:** Express.json, Cookie Parser, CORS
+**Backend:** Node.js + Express 5  
+**Base de Datos:** PostgreSQL (Prisma ORM)  
+**Frontend:** Vistas server-side con EJS + JS vanilla (sin build ni framework)  
+**Autenticación:** JWT en cookie HTTP-only  
+**Middleware:** express.json, cookie-parser, multer (subida de imágenes), helmet, express-rate-limit
 
 ## 🔐 Seguridad
 
-- Autenticación JWT con tokens seguros
-- Cookies con control de sesión
+- Autenticación JWT (cookie HTTP-only) + contraseñas con bcrypt
+- Headers de seguridad HTTP vía helmet
+- Rate limiting en la API, más estricto en login/registro
 - Validación de datos en servidor
+
+## 🚀 Cómo correrlo localmente
+
+1. `npm install`
+2. Copiar `.env.example` a `.env` y completar `DATABASE_URL` (Postgres) y `JWT_SECRET`
+3. `npx prisma migrate dev` (aplica el schema a tu base)
+4. `npm start`
+
+La app queda en `http://localhost:3000`.
