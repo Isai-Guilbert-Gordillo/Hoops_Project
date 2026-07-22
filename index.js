@@ -2019,33 +2019,6 @@ app.put('/api/enrollments/:id/payment', authenticateToken, async (req, res) => {
             where: { id: enrollmentId },
             data: { amountPaid: parseInt(amountPaid, 10) || 0 }
         });
-        
-// Obtener un partido específico con sus equipos y jugadores
-app.get('/api/matches/:id', async (req, res) => {
-  try {
-    const match = await prisma.match.findUnique({
-      where: { id: req.params.id },
-      include: {
-        homeTeam: { 
-          include: { players: true } 
-        },
-        awayTeam: { 
-          include: { players: true } 
-        },
-        tournament: true
-      }
-    });
-
-    if (!match) {
-      return res.status(404).json({ error: "Partido no encontrado" });
-    }
-
-    res.json(match);
-  } catch (error) {
-    console.error("Error obteniendo el partido:", error);
-    res.status(500).json({ error: "Error interno del servidor" });
-  }
-});
 
         res.status(200).json(updated);
     } catch (error) {
