@@ -1,0 +1,26 @@
+# Blueprint de Render para Retro Hoops.
+# Despliega el servidor Express tal cual, sin adaptación serverless.
+#
+# Los SECRETOS (DATABASE_URL, JWT_SECRET, CLOUDINARY_URL) NO van aquí: se cargan
+# en el dashboard de Render (por eso sync:false). Nunca subas secretos al repo.
+#
+# La base de datos (Prisma Postgres en db.prisma.io) ya está migrada, por eso el
+# build solo instala dependencias. Cuando cambies el esquema, corre las
+# migraciones con:  npx prisma migrate deploy
+services:
+  - type: web
+    name: retro-hoops
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    healthCheckPath: /
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: CLOUDINARY_URL
+        sync: false
