@@ -37,7 +37,10 @@
         const ballR = 13, floorY = H - 6;
 
         const threeLineX = 50;
-        const spots = [120, 90, 160, 45, 200, 32, 140].map(x => ({ x, three: x < threeLineX }));
+        // Spots ordenados de CERCA (x grande) a LEJOS (x chica). La dificultad
+        // escala corriendo la ventana de selección hacia los lejanos según el
+        // puntaje (ver difficultyLevel/nextSpot).
+        const spots = [200, 160, 140, 120, 90, 45, 32].map(x => ({ x, three: x < threeLineX }));
 
         // ---- Estado del juego (todo en memoria) ----
         const ball = { x:0, y:0, vx:0, vy:0, scored:false, wasThree:false };
@@ -60,8 +63,21 @@
             ball.x = curSpot.x; ball.y = floorY - ballR; ball.vx = 0; ball.vy = 0;
             ball.scored = false; state = 'ready';
         }
+        // Nivel de dificultad: sube un escalón cada 4 canastas.
+        function difficultyLevel() { return Math.floor(score / 4); }
+
         function nextSpot() {
-            spotIdx = (spotIdx + 1 + Math.floor(Math.random() * (spots.length - 1))) % spots.length;
+            // La ventana de spots posibles se desplaza hacia los tiros lejanos
+            // conforme sube el nivel: nivel 0 = tiros cercanos; niveles altos =
+            // solo triples desde el fondo.
+            const lvl = difficultyLevel();
+            const minIdx = Math.min(lvl, spots.length - 2);
+            const maxIdx = Math.min(minIdx + 2, spots.length - 1);
+            let idx = spotIdx;
+            for (let t = 0; t < 8 && idx === spotIdx; t++) {
+                idx = minIdx + Math.floor(Math.random() * (maxIdx - minIdx + 1));
+            }
+            spotIdx = idx;
             placeBall();
         }
         placeBall();
@@ -185,6 +201,12 @@
 
             if (ball.vx > 0 && ball.x + ballR >= backboardX && ball.y >= bbTop && ball.y <= bbBottom) {
                 ball.x = backboardX - ballR; ball.vx = -Math.abs(ball.vx) * 0.6; if (!ball.scored) clank();
+            }
+            // No se puede colar desde abajo: si el balón SUBE y cruza la boca del
+            // aro, rebota contra la parte inferior del aro (como en la realidad).
+            // Solo cuenta canasta al bajar (vy > 0) entrando desde arriba.
+            if (ball.vy < 0 && prevY >= rimY && ball.y < rimY && ball.x > rimFront + 3 && ball.x < rimBack - 3) {
+                ball.y = rimY; ball.vy = Math.abs(ball.vy) * 0.5; if (!ball.scored) clank();
             }
             if (!ball.scored && ball.vy > 0 && prevY < rimY && ball.y >= rimY && ball.x > rimFront + 3 && ball.x < rimBack - 3) {
                 ball.scored = true; onScore(ball.wasThree);
