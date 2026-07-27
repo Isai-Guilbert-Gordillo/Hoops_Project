@@ -412,7 +412,11 @@
         const code = document.getElementById('cta-code');
         if (!btn) return;
         let unlocked = false;
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
+        // Desbloqueo: única recompensa real de la página (registro + código),
+        // hasta ahora un simple swap de estado. El pulso dorado, la salida
+        // del candado y la aparición del código son un solo momento autoral.
         function unlock() {
             if (unlocked) return;
             unlocked = true;
@@ -420,12 +424,29 @@
             btn.setAttribute('aria-disabled', 'false');
             btn.href = '/registro.html';
             txt.textContent = 'Registrarme ahora';
-            if (lock) lock.remove();
+
+            if (lock) {
+                if (reduceMotion) {
+                    lock.remove();
+                } else {
+                    lock.classList.add('is-leaving');
+                    lock.addEventListener('animationend', () => lock.remove(), { once: true });
+                }
+            }
+
+            btn.classList.add('is-unlocking');
+            btn.addEventListener('animationend', function onBtnAnim(e) {
+                if (e.target !== btn) return; // animationend burbujea desde el candado (hijo, animación más corta); ignorar
+                btn.classList.remove('is-unlocking');
+                btn.removeEventListener('animationend', onBtnAnim);
+            });
+
             note.classList.add('is-success');
             note.innerHTML = '<span class="ok">✓</span>¡Canasta! <b>Registro desbloqueado.</b>';
             const c = 'RH-' + Math.random().toString(36).slice(2, 6).toUpperCase();
             code.textContent = 'Tu código: ' + c;
             code.style.display = 'inline-block';
+            code.classList.add('is-revealed');
         }
 
         window.addEventListener('hoops:score', (e) => {

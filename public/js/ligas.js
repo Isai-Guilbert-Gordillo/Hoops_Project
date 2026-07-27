@@ -84,7 +84,7 @@
                     const organizerName = torneo.organizer
                         ? `${torneo.organizer.firstName || ''} ${torneo.organizer.lastName || ''}`.trim()
                         : '';
-                    const organizerCell = organizerName || 'Desconocido';
+                    const organizerCell = escapeHtml(organizerName || 'Desconocido');
 
                     // Solo el organizador dueño de la liga o un ADMIN pueden gestionarla.
                     const canManage = sessionUser && (
@@ -109,10 +109,10 @@
                     tarjeta.innerHTML = `
                         <div class="lg-card__body" data-action="open-tournament" data-tournament-id="${torneo.id}">
                             <span class="lg-status ${status.className}">${status.text}</span>
-                            <h3 class="lg-card__name">${torneo.name}</h3>
+                            <h3 class="lg-card__name">${escapeHtml(torneo.name)}</h3>
                             <dl class="lg-card__meta">
-                                <div><dt>Formato</dt><dd>${torneo.category}</dd></div>
-                                <div><dt>Sede</dt><dd>${torneo.venue || 'Por definir'}</dd></div>
+                                <div><dt>Formato</dt><dd>${escapeHtml(torneo.category)}</dd></div>
+                                <div><dt>Sede</dt><dd>${escapeHtml(torneo.venue || 'Por definir')}</dd></div>
                                 <div><dt>Cupos</dt><dd>${teamsCell}</dd></div>
                                 <div><dt>Inicio</dt><dd>${fechaFormateada}</dd></div>
                                 <div><dt>Registró</dt><dd>${organizerCell}</dd></div>

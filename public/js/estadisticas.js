@@ -27,7 +27,7 @@
                     const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
 
                     let logoHtml = p.logoUrl
-                        ? `<img src="${p.logoUrl}" class="team-logo" alt="Logo" data-fallback="hide">`
+                        ? `<img src="${escapeHtml(p.logoUrl)}" class="team-logo" alt="Logo" data-fallback="hide">`
                         : `<div class="team-logo">?</div>`;
 
                     tr.innerHTML = `
@@ -39,10 +39,10 @@
                                 </a>
                                 <div>
                                     <a href="/perfil-jugador.html?playerId=${p.playerId}" class="player-name-link">
-                                        <div class="player-name ${isFirst ? 'leader-name' : ''}">${p.name}</div>
+                                        <div class="player-name ${isFirst ? 'leader-name' : ''}">${escapeHtml(p.name)}</div>
                                     </a>
                                     <a href="/perfil-equipo.html?teamId=${p.teamId}" class="team-name-link">
-                                        <div class="team-name-sub">${p.teamName}</div>
+                                        <div class="team-name-sub">${escapeHtml(p.teamName)}</div>
                                     </a>
                                 </div>
                             </div>

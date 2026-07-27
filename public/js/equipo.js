@@ -89,7 +89,7 @@
 
                 const logoContainer = document.getElementById('team-logo');
                 if (team.logoUrl) {
-                    logoContainer.innerHTML = `<img src="${team.logoUrl}" alt="Logo" data-fallback="team-logo">`;
+                    logoContainer.innerHTML = `<img src="${escapeHtml(team.logoUrl)}" alt="Logo" data-fallback="team-logo">`;
                 } else {
                     logoContainer.innerText = '?';
                 }
@@ -112,13 +112,13 @@
                     team.players.forEach(player => {
                         const tr = document.createElement('tr');
                         const photoHtml = player.photoUrl
-                            ? `<div class="player-photo"><img src="${player.photoUrl}" alt="${player.name}" data-fallback="player-photo"></div>`
+                            ? `<div class="player-photo"><img src="${escapeHtml(player.photoUrl)}" alt="${escapeHtml(player.name)}" data-fallback="player-photo"></div>`
                             : `<div class="player-photo">?</div>`;
                         tr.innerHTML = `
-                            <td class="jersey">#${player.jerseyNumber}</td>
-                            <td><div class="player-cell">${photoHtml}<span>${player.name}</span></div></td>
-                            <td>${player.position}</td>
-                            ${isCaptain ? `<td><button class="btn btn-danger btn-sm" data-action="delete-player" data-player-id="${player.id}" data-player-name="${player.name.replace(/"/g, '&quot;')}"><span class="btn-content">Eliminar</span></button></td>` : ''}
+                            <td class="jersey">#${escapeHtml(player.jerseyNumber)}</td>
+                            <td><div class="player-cell">${photoHtml}<span>${escapeHtml(player.name)}</span></div></td>
+                            <td>${escapeHtml(player.position)}</td>
+                            ${isCaptain ? `<td><button class="btn btn-danger btn-sm" data-action="delete-player" data-player-id="${player.id}" data-player-name="${escapeHtml(player.name)}"><span class="btn-content">Eliminar</span></button></td>` : ''}
                         `;
                         rosterBody.appendChild(tr);
                     });
@@ -152,8 +152,8 @@
                     enrolledWrap.style.display = 'block';
                     enrolledList.innerHTML = team.enrollments.map(e => `
                         <div class="card tournament-enrolled-badge">
-                            <h3>${e.tournament.name}</h3>
-                            <p>${e.tournament.category} · ${e.tournament.venue || 'Sede por definir'}</p>
+                            <h3>${escapeHtml(e.tournament.name)}</h3>
+                            <p>${escapeHtml(e.tournament.category)} · ${escapeHtml(e.tournament.venue || 'Sede por definir')}</p>
                         </div>
                     `).join('');
                 }
@@ -172,9 +172,9 @@
 
                     availableList.innerHTML = available.map(t => `
                         <div class="card tournament-enroll-card">
-                            <h3>${t.name}</h3>
-                            <p>${t.category} · ${t.venue || 'Sede por definir'}</p>
-                            <p>Organiza: ${t.organizer ? capitalizeName(`${t.organizer.firstName} ${t.organizer.lastName}`) : '—'}</p>
+                            <h3>${escapeHtml(t.name)}</h3>
+                            <p>${escapeHtml(t.category)} · ${escapeHtml(t.venue || 'Sede por definir')}</p>
+                            <p>Organiza: ${t.organizer ? escapeHtml(capitalizeName(`${t.organizer.firstName} ${t.organizer.lastName}`)) : '—'}</p>
                             <button type="button" class="btn-submit" data-action="enroll" data-tournament-id="${t.id}">Inscribirme</button>
                         </div>
                     `).join('');

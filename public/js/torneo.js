@@ -294,9 +294,9 @@ document.addEventListener('click', (e) => {
                         const card = document.createElement('div');
                         card.className = 'enrolled-card';
 
-                        const initial = (team.name || '?').trim().charAt(0).toUpperCase();
+                        const initial = escapeHtml((team.name || '?').trim().charAt(0).toUpperCase());
                         const logoHtml = team.logoUrl
-                            ? `<img src="${team.logoUrl}" alt="Logo ${team.name}" data-fallback="placeholder" data-fallback-class="enrolled-card__ph" data-fallback-text="${initial}">`
+                            ? `<img src="${escapeHtml(team.logoUrl)}" alt="Logo ${escapeHtml(team.name)}" data-fallback="placeholder" data-fallback-class="enrolled-card__ph" data-fallback-text="${initial}">`
                             : `<span class="enrolled-card__ph">${initial}</span>`;
 
                         const cost = tournament.inscriptionFee || 0;
@@ -338,14 +338,14 @@ document.addEventListener('click', (e) => {
                                 : `${team.captain.firstName} ${team.captain.lastName}`)
                             : null;
                         const captainLine = capName
-                            ? `<p class="enrolled-card__cap">Cap. ${capName}</p>`
+                            ? `<p class="enrolled-card__cap">Cap. ${escapeHtml(capName)}</p>`
                             : '';
 
                         card.innerHTML = `
                             <a class="enrolled-card__head" href="equipo.html?id=${team.id}">
                                 <div class="enrolled-card__logo">${logoHtml}</div>
                                 <div class="enrolled-card__meta">
-                                    <h3 class="enrolled-card__name">${team.name}</h3>
+                                    <h3 class="enrolled-card__name">${escapeHtml(team.name)}</h3>
                                     ${captainLine}
                                     ${statusBadge}
                                 </div>
@@ -410,7 +410,7 @@ document.addEventListener('click', (e) => {
                                 const tr = document.createElement('tr');
                                 
                                 let logoHtml = s.logoUrl
-                                    ? `<img src="${s.logoUrl}" alt="Logo" data-fallback="hide-clear">`
+                                    ? `<img src="${escapeHtml(s.logoUrl)}" alt="Logo" data-fallback="hide-clear">`
                                     : `<div style="width:30px; height:30px; border-radius:50%; background:#2a2a35; border:1px solid var(--cyan-accent); display:flex; align-items:center; justify-content:center; font-size:10px; font-family:'Press Start 2P'; color:var(--text-muted);">?</div>`;
 
                                 tr.innerHTML = `
@@ -418,7 +418,7 @@ document.addEventListener('click', (e) => {
                                     <td>
                                         <div class="team-inline" data-action="navigate" data-href="/perfil-equipo.html?teamId=${s.teamId}" style="cursor: pointer;">
                                             ${logoHtml}
-                                            <a href="/perfil-equipo.html?teamId=${s.teamId}" style="color: inherit; text-decoration: none;">${s.teamName}</a>
+                                            <a href="/perfil-equipo.html?teamId=${s.teamId}" style="color: inherit; text-decoration: none;">${escapeHtml(s.teamName)}</a>
                                         </div>
                                     </td>
                                     <td>${s.pj}</td>
@@ -464,9 +464,9 @@ document.addEventListener('click', (e) => {
 
                         // Escudo del equipo: usa el logo si existe, si no la inicial como fallback
                         const renderMatchLogo = (team) => {
-                            const initial = team.name.charAt(0).toUpperCase();
+                            const initial = escapeHtml(team.name.charAt(0).toUpperCase());
                             return team.logoUrl && team.logoUrl.trim() !== ''
-                                ? `<img src="${team.logoUrl}" class="match-logo" alt="${team.name}" data-fallback="hide-sibling"><div class="match-logo" style="display:none;">${initial}</div>`
+                                ? `<img src="${escapeHtml(team.logoUrl)}" class="match-logo" alt="${escapeHtml(team.name)}" data-fallback="hide-sibling"><div class="match-logo" style="display:none;">${initial}</div>`
                                 : `<div class="match-logo">${initial}</div>`;
                         };
 
@@ -510,7 +510,7 @@ document.addEventListener('click', (e) => {
                                         ${renderMatchLogo(match.homeTeam)}
                                         <div class="match-side-info">
                                             <div class="match-role">Local</div>
-                                            <a class="match-team-name" href="/perfil-equipo.html?teamId=${match.homeTeam.id}">${match.homeTeam.name}</a>
+                                            <a class="match-team-name" href="/perfil-equipo.html?teamId=${match.homeTeam.id}">${escapeHtml(match.homeTeam.name)}</a>
                                         </div>
                                     </div>
                                     <span class="match-vs">VS</span>
@@ -518,7 +518,7 @@ document.addEventListener('click', (e) => {
                                         ${renderMatchLogo(match.awayTeam)}
                                         <div class="match-side-info">
                                             <div class="match-role">Visitante</div>
-                                            <a class="match-team-name" href="/perfil-equipo.html?teamId=${match.awayTeam.id}">${match.awayTeam.name}</a>
+                                            <a class="match-team-name" href="/perfil-equipo.html?teamId=${match.awayTeam.id}">${escapeHtml(match.awayTeam.name)}</a>
                                         </div>
                                     </div>
                                 </div>
@@ -599,8 +599,8 @@ document.addEventListener('click', (e) => {
 
                         const formatLogo = (team) => {
                             return team.logoUrl && team.logoUrl.trim() !== ''
-                                ? `<img src="${team.logoUrl}" class="bracket-team-logo" alt="logo" data-fallback="hide-sibling"><div class="bracket-team-logo" style="display:none;">${team.name.charAt(0).toUpperCase()}</div>`
-                                : `<div class="bracket-team-logo">${team.name.charAt(0).toUpperCase()}</div>`;
+                                ? `<img src="${escapeHtml(team.logoUrl)}" class="bracket-team-logo" alt="logo" data-fallback="hide-sibling"><div class="bracket-team-logo" style="display:none;">${escapeHtml(team.name.charAt(0).toUpperCase())}</div>`
+                                : `<div class="bracket-team-logo">${escapeHtml(team.name.charAt(0).toUpperCase())}</div>`;
                         };
 
                         // Función auxiliar para renderizar un partido en el bracket
@@ -641,13 +641,13 @@ document.addEventListener('click', (e) => {
                                 ${statusBadge}
                                 <div class="bracket-team ${hWinner ? 'is-winner' : ''}">
                                     ${formatLogo(match.homeTeam)}
-                                    <div class="bracket-team-name">${match.homeTeam.name}</div>
+                                    <div class="bracket-team-name">${escapeHtml(match.homeTeam.name)}</div>
                                     <div class="bracket-team-score">${match.status === 'SCHEDULED' ? '-' : match.homeScore}</div>
                                     ${hWinner ? '<span class="bracket-winner-tag">✓</span>' : ''}
                                 </div>
                                 <div class="bracket-team ${aWinner ? 'is-winner' : ''}">
                                     ${formatLogo(match.awayTeam)}
-                                    <div class="bracket-team-name">${match.awayTeam.name}</div>
+                                    <div class="bracket-team-name">${escapeHtml(match.awayTeam.name)}</div>
                                     <div class="bracket-team-score">${match.status === 'SCHEDULED' ? '-' : match.awayScore}</div>
                                     ${aWinner ? '<span class="bracket-winner-tag">✓</span>' : ''}
                                 </div>
@@ -824,7 +824,7 @@ document.addEventListener('click', (e) => {
                         (matchData.stats || []).forEach(s => { statsByPlayer[s.playerId] = s; });
 
                         const createTeamTable = (team, titleColor) => {
-                            let html = `<h3 style="color:${titleColor}; font-family:'Press Start 2P'; font-size:0.8rem; margin-top: 1.5rem;">${team.name}</h3>`;
+                            let html = `<h3 style="color:${titleColor}; font-family:'Press Start 2P'; font-size:0.8rem; margin-top: 1.5rem;">${escapeHtml(team.name)}</h3>`;
                             if (!team.players || team.players.length === 0) {
                                 html += `<p style="color:var(--text-muted); font-size:0.8rem;">No hay jugadores registrados.</p>`;
                                 return html;
@@ -847,7 +847,7 @@ document.addEventListener('click', (e) => {
                                 const s = statsByPlayer[p.id];
                                 html += `
                                     <tr class="stat-row" data-player-id="${p.id}">
-                                        <td style="text-align:left; font-size: 0.9rem;">${p.name} <span style="color:var(--text-muted); font-size:0.7rem;">#${p.jerseyNumber}</span></td>
+                                        <td style="text-align:left; font-size: 0.9rem;">${escapeHtml(p.name)} <span style="color:var(--text-muted); font-size:0.7rem;">#${escapeHtml(p.jerseyNumber)}</span></td>
                                         <td>${s ? s.points : 0}</td>
                                         <td>${s ? s.rebounds : 0}</td>
                                         <td>${s ? s.assists : 0}</td>

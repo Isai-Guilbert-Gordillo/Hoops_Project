@@ -55,8 +55,8 @@
                 document.getElementById('team-name').innerText = team.name;
 
                 let logoHtml = team.logoUrl
-                    ? `<img src="${team.logoUrl}" class="team-logo-large" alt="Logo" data-fallback="team-logo">`
-                    : `<div class="team-logo-large">${team.name.charAt(0).toUpperCase()}</div>`;
+                    ? `<img src="${escapeHtml(team.logoUrl)}" class="team-logo-large" alt="Logo" data-fallback="team-logo">`
+                    : `<div class="team-logo-large">${escapeHtml(team.name.charAt(0).toUpperCase())}</div>`;
                 document.getElementById('team-logo-container').innerHTML = logoHtml;
 
                 // Calcular récord con partidos finalizados
@@ -85,13 +85,13 @@
                     team.players.forEach(p => {
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
-                            <td style="color: var(--cyan-accent); font-weight: bold;">${p.jerseyNumber}</td>
+                            <td style="color: var(--cyan-accent); font-weight: bold;">${escapeHtml(p.jerseyNumber)}</td>
                             <td style="font-weight: 600;">
                                 <a href="perfil-jugador.html?playerId=${p.id}" class="roster-player-link">
-                                    ${p.name}
+                                    ${escapeHtml(p.name)}
                                 </a>
                             </td>
-                            <td style="color: var(--text-muted);">${p.position}</td>
+                            <td style="color: var(--text-muted);">${escapeHtml(p.position)}</td>
                             <td><span class="badge badge-cyan" style="margin-bottom: 0;">Activo</span></td>
                         `;
                         rosterBody.appendChild(tr);
@@ -112,7 +112,7 @@
                         const isHome = m.homeTeamId === teamId;
                         const opponent = isHome ? m.awayTeam : m.homeTeam;
                         // Si por algún error no trae awayTeam/homeTeam en el join, protegerlo
-                        const oppName = opponent ? opponent.name : 'Desconocido';
+                        const oppName = escapeHtml(opponent ? opponent.name : 'Desconocido');
                         const oppId = opponent ? opponent.id : null;
                         
                         const homeScore = m.homeScore;
@@ -145,13 +145,13 @@
                             <div class="match-card">
                                 <div class="match-info">
                                     <div class="match-meta">
-                                        <span style="color: var(--cyan-accent); font-family: 'Press Start 2P', cursive; font-size: 0.5rem; margin-right: 0.5rem;">${m.tournament ? m.tournament.name : 'Torneo'}</span>
+                                        <span style="color: var(--cyan-accent); font-family: 'Press Start 2P', cursive; font-size: 0.5rem; margin-right: 0.5rem;">${escapeHtml(m.tournament ? m.tournament.name : 'Torneo')}</span>
                                         ${mDate} a las ${mTime}
                                     </div>
                                     <div class="match-teams">
-                                        ${isHome ? `<span style="color: var(--text-main);">${team.name}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" class="opponent-link">${oppName}</a>`}
+                                        ${isHome ? `<span style="color: var(--text-main);">${escapeHtml(team.name)}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" class="opponent-link">${oppName}</a>`}
                                         <span class="match-vs">VS</span>
-                                        ${!isHome ? `<span style="color: var(--text-main);">${team.name}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" class="opponent-link">${oppName}</a>`}
+                                        ${!isHome ? `<span style="color: var(--text-main);">${escapeHtml(team.name)}</span>` : `<a href="/perfil-equipo.html?teamId=${oppId}" class="opponent-link">${oppName}</a>`}
                                     </div>
                                 </div>
                                 <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 0.5rem;">

@@ -149,7 +149,7 @@
 
         function renderRoster(team, teamType, containerId) {
             const container = document.getElementById(containerId);
-            container.innerHTML = `<div class="roster-header"><span>${team?.name || 'Equipo'} Roster</span></div>`;
+            container.innerHTML = `<div class="roster-header"><span>${escapeHtml(team?.name || 'Equipo')} Roster</span></div>`;
 
             if (!team || !team.players || team.players.length === 0) {
                 container.innerHTML += `<div style="text-align:center; padding: 2rem; color: var(--text-muted);">Sin jugadores.</div>`;
@@ -162,8 +162,8 @@
                 row.innerHTML = `
                     <div class="player-top">
                         <div class="player-info">
-                            <div class="player-number">${p.jerseyNumber}</div>
-                            <div class="player-name">${p.name}</div>
+                            <div class="player-number">${escapeHtml(p.jerseyNumber)}</div>
+                            <div class="player-name">${escapeHtml(p.name)}</div>
                         </div>
                     </div>
                     <div class="player-bottom">

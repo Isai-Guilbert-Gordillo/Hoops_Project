@@ -75,7 +75,7 @@
                         // sobre uno mismo ni sobre otro ADMIN, ambos bloqueados también
                         // en el backend). Elimina en cascada torneos, franquicias,
                         // jugadores, inscripciones y partidos asociados a ese usuario.
-                        const safeUserName = capitalizeName(user.firstName + ' ' + user.lastName).replace(/"/g, '&quot;');
+                        const safeUserName = escapeHtml(capitalizeName(user.firstName + ' ' + user.lastName));
                         const deleteBtn = (!isSelf && user.role !== 'ADMIN')
                             ? `<button class="btn btn-danger btn-sm" data-action="delete-user" data-user-id="${user.id}" data-user-name="${safeUserName}"><span class="btn-content">Eliminar Usuario</span></button>`
                             : '';
@@ -104,10 +104,10 @@
                         const tr = document.createElement('tr');
                         tr.innerHTML = `
                             <td>
-                                <div class="user-row-name">${capitalizeName(user.firstName + ' ' + user.lastName)}${isSelf ? ' <span style="color: var(--cyan-accent); font-size: 0.75rem;">(Tú)</span>' : ''}</div>
-                                <div class="user-row-email">${user.email}</div>
+                                <div class="user-row-name">${escapeHtml(capitalizeName(user.firstName + ' ' + user.lastName))}${isSelf ? ' <span style="color: var(--cyan-accent); font-size: 0.75rem;">(Tú)</span>' : ''}</div>
+                                <div class="user-row-email">${escapeHtml(user.email)}</div>
                             </td>
-                            <td><span class="badge ${badgeClass}">${user.role}</span></td>
+                            <td><span class="badge ${badgeClass}">${escapeHtml(user.role)}</span></td>
                             <td style="text-align: right;">${actions}</td>
                         `;
                         usersBody.appendChild(tr);

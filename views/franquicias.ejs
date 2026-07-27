@@ -53,14 +53,16 @@
         <!-- Filtro de liga: SIEMPRE visible (incluso sin sesión), para no mezclar
              franquicias de todas las ligas en un solo directorio gigante.
              El filtro de propiedad ("Mis franquicias") solo aparece con sesión. -->
-        <div id="franq-toolbar" class="franq-toolbar" style="display:flex; flex-wrap:wrap; gap:0.75rem; margin:0 0 1.5rem;">
-            <select id="filter-league-teams" style="background:var(--surface,#1a1830); color:var(--text,#fff); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:.6rem 1rem; font-family:var(--font-data,inherit); cursor:pointer;">
-                <option value="all">Todas las ligas</option>
-            </select>
-            <select id="filter-owner-teams" style="display:none; background:var(--surface,#1a1830); color:var(--text,#fff); border:1px solid rgba(255,255,255,.15); border-radius:10px; padding:.6rem 1rem; font-family:var(--font-data,inherit); cursor:pointer;">
-                <option value="mine">Mis franquicias</option>
-                <option value="all">Todas las franquicias</option>
-            </select>
+        <div class="filters-bar">
+            <div class="filter-group">
+                <select id="filter-league-teams" aria-label="Filtrar por liga">
+                    <option value="all">Todas las ligas</option>
+                </select>
+                <select id="filter-owner-teams" style="display:none;" aria-label="Filtrar por propiedad de franquicia">
+                    <option value="mine">Mis franquicias</option>
+                    <option value="all">Todas las franquicias</option>
+                </select>
+            </div>
         </div>
 
         <!-- ============ CAPA 2: GRID DE FRANQUICIAS ============ -->

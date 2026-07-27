@@ -213,16 +213,16 @@
                 }
 
                 playersTableBody.innerHTML = playersToAdd.map((player, index) => {
-                    const initial = (player.name.trim().charAt(0) || '?').toUpperCase();
+                    const initial = escapeHtml((player.name.trim().charAt(0) || '?').toUpperCase());
                     const photoHtml = player.photoPreviewUrl
-                        ? `<div class="player-row-photo"><img src="${player.photoPreviewUrl}" alt="${player.name}"></div>`
+                        ? `<div class="player-row-photo"><img src="${escapeHtml(player.photoPreviewUrl)}" alt="${escapeHtml(player.name)}"></div>`
                         : `<div class="player-row-photo player-avatar-fallback">${initial}</div>`;
                     return `
                     <tr>
                         <td>${index + 1}</td>
-                        <td><div class="player-cell">${photoHtml}<span>${player.name}</span></div></td>
-                        <td>${player.jerseyNumber}</td>
-                        <td>${player.position}</td>
+                        <td><div class="player-cell">${photoHtml}<span>${escapeHtml(player.name)}</span></div></td>
+                        <td>${escapeHtml(player.jerseyNumber)}</td>
+                        <td>${escapeHtml(player.position)}</td>
                         <td>
                             <button type="button" class="btn-delete" title="Eliminar jugador" aria-label="Eliminar jugador" data-action="delete-player-row" data-index="${index}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>
                         </td>

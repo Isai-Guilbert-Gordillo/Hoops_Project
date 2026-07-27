@@ -7,7 +7,7 @@
             if (token && user) {
                 const authSection = document.getElementById('auth-section');
                 authSection.innerHTML = `
-                    <span id="user-greeting" class="user-greeting" style="display: inline-block;">Hola, ${capitalizeName(user.firstName)}</span>
+                    <span id="user-greeting" class="user-greeting" style="display: inline-block;">Hola, ${escapeHtml(capitalizeName(user.firstName))}</span>
                     <button id="logout-btn" class="btn btn-ghost"><span class="btn-content">Logout</span></button>
                     ${['SUPERADMIN', 'LEAGUE_MANAGER'].includes(user.role) ? '<a href="/mesa-control.html" class="btn btn-cyan"><span class="btn-content">Mesa</span></a>' : ''}
                 `;
@@ -48,7 +48,7 @@
                 document.getElementById('team-name').innerText = player.team.name;
                 
                 if (player.team.logoUrl) {
-                    document.getElementById('team-logo-container').innerHTML = `<img src="${player.team.logoUrl}" class="team-logo-small" alt="${player.team.name} Logo">`;
+                    document.getElementById('team-logo-container').innerHTML = `<img src="${escapeHtml(player.team.logoUrl)}" class="team-logo-small" alt="${escapeHtml(player.team.name)} Logo">`;
                 } else {
                     document.getElementById('team-logo-container').innerHTML = `<div class="team-logo-small" style="font-size:10px;">?</div>`;
                 }
@@ -89,7 +89,7 @@
                             <td style="font-size: 0.85rem; color: var(--text-muted);">${dateStr}</td>
                             <td>
                                 <a href="/perfil-equipo.html?teamId=${opponent.id}" class="opponent-link">
-                                    vs ${opponent.name}
+                                    vs ${escapeHtml(opponent.name)}
                                 </a>
                             </td>
                             <td>${resultHtml}</td>

@@ -14,6 +14,15 @@ const app = express();
 const port = process.env.PORT || 3000;
 const prisma = new PrismaClient();
 
+// En producción la app corre detrás de un proxy inverso (Render, Nginx, etc.)
+// que agrega X-Forwarded-For. Sin esto, express-rate-limit vería siempre la IP
+// del proxy y limitaría a todos juntos; con 'trust proxy' en 1 salto usa la IP
+// real del cliente. Se activa solo en producción para no confiar en cabeceras
+// falsificables en desarrollo local.
+if (process.env.NODE_ENV === 'production') {
+    app.set('trust proxy', 1);
+}
+
 // Headers de seguridad HTTP, incluida una CSP real. script-src queda estricto
 // ('self', sin inline ni eval) porque ya no quedan onclick="" ni <script>
 // inline en las vistas. style-src sí necesita 'unsafe-inline': todavía hay
@@ -50,9 +59,15 @@ const authLimiter = rateLimit({
     legacyHeaders: false,
     message: { error: 'Demasiados intentos. Probá de nuevo en unos minutos.' }
 });
-// El secreto vive en .env (JWT_SECRET). El fallback evita romper el arranque en
-// desarrollo si la variable no está definida; en producción DEBE estar en .env.
-const JWT_SECRET = process.env.JWT_SECRET || 'kphoops_super_secret_key_2026';
+// El secreto de firma JWT vive SOLO en .env (nunca en el código). Sin un valor
+// fuerte definido, cualquiera podría forjar tokens de admin: por eso el arranque
+// se aborta si falta o es demasiado corto. Genera uno con: openssl rand -hex 48
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+    console.error('FATAL: JWT_SECRET no está definido o es demasiado corto (mínimo 32 caracteres). ' +
+        'Definilo en .env con un valor aleatorio: openssl rand -hex 48');
+    process.exit(1);
+}
 const AUTH_COOKIE_NAME = 'kphoops_session';
 const JWT_EXPIRES_IN = '7d';
 const JWT_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -75,6 +90,19 @@ const FREE_PLAN_LIMITS = {
     MAX_TEAMS_PER_ORGANIZER: 64
 };
 
+// Sanea una URL de imagen recibida en el body. Solo se aceptan rutas internas
+// de archivos ya subidos a este servidor (/uploads/...). Rechaza URLs externas,
+// esquemas peligrosos (javascript:, data:) y cualquier cosa que luego se
+// inyectaría en el DOM con innerHTML/<img src>, cerrando un vector de XSS.
+function safeUploadUrl(value) {
+    if (typeof value !== 'string') return null;
+    const v = value.trim();
+    if (!v) return null;
+    // Debe ser una ruta relativa dentro de /uploads/ y sin traversal.
+    if (!/^\/uploads\/[A-Za-z0-9._\-\/]+$/.test(v) || v.includes('..')) return null;
+    return v;
+}
+
 // Normaliza texto libre (nombres de liga, sede) a "title case" en español, para
 // no guardar lo que el usuario escribió tal cual ("liga hermandad", "nayo"). Cada
 // palabra lleva inicial mayúscula, salvo conectores menores (de, la, y...) que van
@@ -96,9 +124,10 @@ function toTitleCase(input) {
         .join(' ');
 }
 
-// Middleware para procesar datos de formularios (URL-encoded y JSON)
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+// Middleware para procesar datos de formularios (URL-encoded y JSON).
+// El límite de tamaño evita que un payload gigante agote memoria/CPU (DoS).
+app.use(express.urlencoded({ extended: true, limit: '100kb' }));
+app.use(express.json({ limit: '100kb' }));
 
 // Servir archivos estáticos desde la carpeta 'public'.
 // Cache-Control: no-cache obliga al navegador a revalidar con el servidor (vía
@@ -1308,7 +1337,11 @@ app.get('/api/teams/:id', async (req, res) => {
         const team = await prisma.team.findUnique({
             where: { id },
             include: {
-                captain: true,
+                // Nunca exponer passwordHash/email/teléfono del capitán en un
+                // endpoint público: solo los datos de identidad necesarios.
+                captain: {
+                    select: { id: true, firstName: true, lastName: true }
+                },
                 players: true,
                 homeMatches: {
                     include: {
@@ -1390,7 +1423,7 @@ app.post('/api/teams/:id/players', authenticateToken, (req, res, next) => {
             return res.status(400).json({ error: `El número ${parsedJersey} ya está en uso en este equipo.` });
         }
 
-        const uploadedPhotoUrl = req.file ? `/uploads/players/${req.file.filename}` : (photoUrl || null);
+        const uploadedPhotoUrl = req.file ? `/uploads/players/${req.file.filename}` : safeUploadUrl(photoUrl);
 
         const newPlayer = await prisma.player.create({
             data: {
@@ -1446,7 +1479,7 @@ app.delete('/api/players/:id', authenticateToken, async (req, res) => {
 });
 
 // Registro combinado: crea usuario + franquicia en una sola transacción
-app.post('/api/teams/register-captain', async (req, res) => {
+app.post('/api/teams/register-captain', authLimiter, async (req, res) => {
     try {
         const { email, password, firstName, lastName, teamName, teamLogo } = req.body;
 
@@ -1490,7 +1523,7 @@ app.post('/api/teams/register-captain', async (req, res) => {
             const team = await tx.team.create({
                 data: {
                     name: teamName.trim(),
-                    logoUrl: teamLogo || null,
+                    logoUrl: safeUploadUrl(teamLogo),
                     captainId: user.id
                 }
             });
@@ -2119,6 +2152,26 @@ app.get('/api/players/:id', async (req, res) => {
         console.error("Error fetching player profile:", error);
         res.status(500).json({ error: 'Error del servidor al obtener el perfil del jugador' });
     }
+});
+
+// 404 para rutas de API no encontradas (evita caer en el static/HTML y devolver
+// una página cuando el cliente esperaba JSON).
+app.use('/api', (req, res) => {
+    res.status(404).json({ error: 'Recurso no encontrado' });
+});
+
+// Manejador de errores global: última red de seguridad. Registra el detalle en
+// el servidor pero NUNCA devuelve el stack ni el mensaje interno al cliente, para
+// no filtrar rutas de archivos, versiones ni estructura de la base de datos.
+// eslint-disable-next-line no-unused-vars
+app.use((err, req, res, next) => {
+    console.error('Error no controlado:', err);
+    // Errores de payload demasiado grande (express.json/urlencoded).
+    if (err.type === 'entity.too.large') {
+        return res.status(413).json({ error: 'La solicitud es demasiado grande.' });
+    }
+    if (res.headersSent) return next(err);
+    res.status(err.status || 500).json({ error: 'Error interno del servidor' });
 });
 
 app.listen(port, () => {

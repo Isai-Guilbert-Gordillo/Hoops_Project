@@ -166,7 +166,7 @@
 
             const sorted = [...allTournaments].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
             sel.innerHTML = `<option value="all">Todas las ligas</option>` +
-                sorted.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+                sorted.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
 
             const fromUrl = new URLSearchParams(window.location.search).get('tournamentId');
             leagueFilter = (fromUrl && sorted.some(t => t.id === fromUrl)) ? fromUrl : 'all';
@@ -275,16 +275,24 @@
 
                 const card = document.createElement('div');
                 card.className = 'card team-card';
-                card.onclick = () => { window.location.href = `equipo.html?id=${team.id}`; };
+                card.tabIndex = 0;
+                card.setAttribute('role', 'link');
+                card.setAttribute('aria-label', `Ver franquicia ${team.name}`);
+                const openTeam = () => { window.location.href = `equipo.html?id=${team.id}`; };
+                card.onclick = openTeam;
+                card.addEventListener('keydown', (e) => {
+                    if (e.target !== card) return; // no interceptar Enter/Espacio de los botones internos
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openTeam(); }
+                });
 
                 // Escudo: imagen si existe, si no la inicial sobre gradiente
-                const initial = (team.name || '?').trim().charAt(0).toUpperCase();
+                const initial = escapeHtml((team.name || '?').trim().charAt(0).toUpperCase());
                 const logoHtml = team.logoUrl
-                    ? `<div class="team-logo"><img src="${team.logoUrl}" alt="Logo ${team.name}" data-fallback="team-logo" data-fallback-text="${initial}"></div>`
+                    ? `<div class="team-logo"><img src="${escapeHtml(team.logoUrl)}" alt="Logo ${escapeHtml(team.name)}" data-fallback="team-logo" data-fallback-text="${initial}"></div>`
                     : `<div class="team-logo is-fallback"><span class="team-logo-placeholder">${initial}</span></div>`;
 
                 const captainStr = team.captain
-                    ? capitalizeName(`${team.captain.firstName} ${team.captain.lastName}`)
+                    ? escapeHtml(capitalizeName(`${team.captain.firstName} ${team.captain.lastName}`))
                     : 'No Asignado';
 
                 // Editar/Eliminar: el capitán dueño ve ambos; el ADMIN solo Eliminar.
@@ -309,7 +317,7 @@
                     <div class="team-card-main">
                         ${logoHtml}
                         <div class="team-info">
-                            <h2>${team.name}</h2>
+                            <h2>${escapeHtml(team.name)}</h2>
                             <p>Capitán: <span class="captain-name">${captainStr}</span></p>
                         </div>
                     </div>
@@ -380,9 +388,9 @@
                 return `
                     <div class="match-row">
                         <div class="match-teams">
-                            <span class="match-team">${m.home}</span>
+                            <span class="match-team">${escapeHtml(m.home)}</span>
                             <span class="match-vs">VS</span>
-                            <span class="match-team">${m.away}</span>
+                            <span class="match-team">${escapeHtml(m.away)}</span>
                         </div>
                         <span class="match-when">${when}</span>
                         ${badge}
@@ -410,7 +418,10 @@
             const file = editTeamLogoInput.files[0];
             if (!file) return;
             const reader = new FileReader();
-            reader.onload = (ev) => { editTeamLogoPreview.innerHTML = `<img src="${ev.target.result}" alt="Vista previa">`; };
+            reader.onload = (ev) => {
+                editTeamLogoPreview.classList.remove('is-fallback');
+                editTeamLogoPreview.innerHTML = `<img src="${ev.target.result}" alt="Vista previa">`;
+            };
             reader.readAsDataURL(file);
         });
 
@@ -439,9 +450,11 @@
             editingTeamId = id;
             document.getElementById('edit-team-name').value = team.name || '';
             editTeamLogoInput.value = '';
+            const initial = escapeHtml((team.name || '?').trim().charAt(0).toUpperCase());
+            editTeamLogoPreview.classList.toggle('is-fallback', !team.logoUrl);
             editTeamLogoPreview.innerHTML = team.logoUrl
-                ? `<img src="${team.logoUrl}" alt="Logo actual">`
-                : `<span class="team-logo-placeholder">?</span>`;
+                ? `<img src="${escapeHtml(team.logoUrl)}" alt="Logo actual">`
+                : `<span class="team-logo-placeholder">${initial}</span>`;
             editTeamModal.style.display = 'flex';
         }
 

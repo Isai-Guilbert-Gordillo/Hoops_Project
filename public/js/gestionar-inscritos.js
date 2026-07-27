@@ -41,8 +41,8 @@
                     const formattedDate = d.toLocaleDateString() + ' ' + d.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
 
                     tr.innerHTML = `
-                        <td style="font-weight: 600;">${enroll.team.name}</td>
-                        <td style="color: var(--cyan-accent);">${enroll.status}</td>
+                        <td style="font-weight: 600;">${escapeHtml(enroll.team.name)}</td>
+                        <td style="color: var(--cyan-accent);">${escapeHtml(enroll.status)}</td>
                         <td style="color: var(--text-muted); font-size: 0.9rem;">${formattedDate}</td>
                         <td>
                             <button class="btn btn-danger btn-sm" data-action="remove-enrollment" data-enroll-id="${enroll.id}"><span class="btn-content">Dar de Baja</span></button>
