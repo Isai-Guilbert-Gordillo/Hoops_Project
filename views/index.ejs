@@ -117,34 +117,71 @@
                 </div>
             </section>
 
-            <!-- MARCADOR — cifras tipo tablero de gimnasio -->
-            <section class="section" id="marcador">
+            <!-- PRECIOS — planes tipo cartelera de arcade -->
+            <section class="section" id="precios">
                 <div class="wrap">
-                    <p class="eyebrow">Datos de la temporada</p>
-                    <h2 class="h-pixel rise">El Marcador</h2>
-                    <div class="board rise">
-                        <div class="board__head">
-                            <span>Marcador · Temporada 2026</span>
-                            <span class="board__live">En vivo</span>
-                        </div>
-                        <div class="board__row" data-stagger>
-                            <div class="board__cell rise">
-                                <div class="stat__num"><span data-count="24">0</span></div>
-                                <div class="stat__label">Ligas activas</div>
-                            </div>
-                            <div class="board__cell rise">
-                                <div class="stat__num"><span data-count="320">0</span></div>
-                                <div class="stat__label">Equipos</div>
-                            </div>
-                            <div class="board__cell rise">
-                                <div class="stat__num"><span data-count="1580">0</span></div>
-                                <div class="stat__label">Partidos</div>
-                            </div>
-                            <div class="board__cell rise">
-                                <div class="stat__num"><span data-count="99.9">0</span><span class="stat__suffix">%</span></div>
-                                <div class="stat__label">Disponibilidad</div>
-                            </div>
-                        </div>
+                    <p class="eyebrow">Planes</p>
+                    <h2 class="h-pixel rise">Elige tu cancha</h2>
+                    <p class="lead rise" style="margin-top:1rem;">
+                        Empieza gratis y sube de nivel cuando tu liga crezca. Sin instalaciones ni contratos:
+                        cambia o cancela cuando quieras.
+                    </p>
+
+                    <div class="pricing" data-stagger>
+
+                        <!-- NOVATO (gratis) -->
+                        <article class="rh-card price-card rise">
+                            <header class="price-head">
+                                <p class="price-plan">Novato</p>
+                                <p class="price-tagline">Para arrancar tu primera liga.</p>
+                            </header>
+                            <p class="price-amount"><span class="price-num">$0</span><span class="price-per">/ siempre</span></p>
+                            <ul class="price-features">
+                                <li>1 liga activa</li>
+                                <li>Hasta 8 equipos</li>
+                                <li>Inscripciones y rosters</li>
+                                <li>Brackets de eliminación</li>
+                                <li>Estadísticas básicas</li>
+                            </ul>
+                            <a class="price-cta price-cta--ghost" href="/registro.html">Empezar gratis</a>
+                        </article>
+
+                        <!-- PRO (destacado) -->
+                        <article class="rh-card price-card price-card--featured rise">
+                            <span class="price-badge">Recomendado</span>
+                            <header class="price-head">
+                                <p class="price-plan">Pro</p>
+                                <p class="price-tagline">Para ligas que van en serio.</p>
+                            </header>
+                            <p class="price-amount"><span class="price-num">$299</span><span class="price-per">/ mes</span></p>
+                            <ul class="price-features">
+                                <li class="price-more">Todo lo de Novato, y además:</li>
+                                <li>Hasta 4 ligas</li>
+                                <li>Hasta 16 equipos por liga</li>
+                                <li>Estadísticas en vivo y mesa de control</li>
+                                <li>Cobro de inscripciones en línea</li>
+                                <li>Tu logo y tu marca</li>
+                                <li>Soporte prioritario</li>
+                            </ul>
+                            <a class="price-cta price-cta--solid" href="/registro.html">Empezar con Pro</a>
+                        </article>
+
+                        <!-- LIGA MAYOR (a medida) -->
+                        <article class="rh-card price-card rise">
+                            <header class="price-head">
+                                <p class="price-plan">Liga Mayor</p>
+                                <p class="price-tagline">Para municipios, escuelas y multi-liga.</p>
+                            </header>
+                            <p class="price-amount"><span class="price-num price-num--custom">A tu medida</span></p>
+                            <ul class="price-features">
+                                <li class="price-more">Todo lo de Pro, y además:</li>
+                                <li>Ligas y equipos ilimitados</li>
+                                <li>Marca 100% propia (white-label)</li>
+                                <li>Acompañamiento en el arranque</li>
+                            </ul>
+                            <a class="price-cta price-cta--ghost" href="mailto:contacto@retrohoops.app?subject=Plan%20Liga%20Mayor">Hablemos</a>
+                        </article>
+
                     </div>
                 </div>
             </section>

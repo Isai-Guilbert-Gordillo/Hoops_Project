@@ -325,24 +325,107 @@
     }
 
     /* ============================================================
-       (5→dato) MARCADOR de la temporada — panel tipo tablero de gimnasio.
-       (4) MOVIMIENTO: contadores 0→valor easeOutCubic 1400ms.
+       PRECIOS — cartelera de planes. Reusa el sistema de tarjetas
+       (.rh-card): mismo borde+luz, misma barra superior naranja en hover.
+       El plan destacado (Pro) fija esa barra y se eleva con sombra real.
        ============================================================ */
-    .board { margin-top: 2rem; background: var(--ink-3); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
-    .board__head {
-        display: flex; align-items: center; justify-content: space-between; gap: 1rem;
-        padding: 0.85rem 1.1rem; border-bottom: 1px solid var(--line);
-        font-family: var(--font-data); font-size: var(--fs-label); letter-spacing: 0.12em;
-        text-transform: uppercase; color: var(--text-dim);
+    .pricing {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(min(100%, 270px), 1fr));
+        gap: var(--gap);
+        margin-top: 2.4rem;
+        align-items: stretch;
     }
-    .board__live { display: inline-flex; align-items: center; gap: 0.5rem; color: var(--buzzer); }
-    .board__live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--buzzer); box-shadow: 0 0 10px var(--buzzer-glow); }
-    .board__row { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 150px), 1fr)); }
-    .board__cell { padding: clamp(1.3rem, 1rem + 1.5vw, 2rem) 1.1rem; border-right: 1px solid var(--line); }
-    .board__cell:last-child { border-right: 0; }
-    .stat__num { font-family: var(--font-data); font-weight: 700; font-size: var(--fs-data-xl); color: var(--board); text-shadow: 0 0 18px var(--board-glow); font-variant-numeric: tabular-nums; line-height: 1; }
-    .stat__num .stat__suffix { color: var(--board); }
-    .stat__label { margin-top: 0.6rem; font-family: var(--font-data); font-size: var(--fs-label); letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-dim); }
+    /* La tarjeta de precio es una .rh-card en columna: la CTA queda anclada
+       abajo para que los botones se alineen aunque las listas midan distinto. */
+    .price-card { display: flex; flex-direction: column; }
+
+    .price-head { min-height: 3.6rem; }
+    .price-plan {
+        margin: 0; font-family: var(--font-display); font-size: 0.95rem;
+        text-transform: uppercase; letter-spacing: -0.5px; color: var(--text);
+    }
+    .price-tagline {
+        margin: 0.7rem 0 0; font-family: var(--font-read);
+        font-size: var(--fs-body); line-height: 1.5; color: var(--text-dim);
+    }
+
+    /* Precio: la cifra en la fuente de dato (Outfit), grande y con luz cian.
+       El destacado la pinta en naranja de acción. */
+    .price-amount {
+        margin: 1.3rem 0 0; padding-bottom: 1.3rem;
+        border-bottom: 1px solid var(--line);
+        display: flex; align-items: baseline; gap: 0.5rem; flex-wrap: wrap;
+    }
+    .price-num {
+        font-family: var(--font-data); font-weight: 700;
+        font-size: clamp(2rem, 1.4rem + 2vw, 2.7rem); line-height: 1;
+        color: var(--board); text-shadow: 0 0 18px var(--board-glow);
+        font-variant-numeric: tabular-nums;
+    }
+    .price-num--custom {
+        font-size: clamp(1.4rem, 1.1rem + 1vw, 1.8rem);
+        text-shadow: none;
+    }
+    .price-per {
+        font-family: var(--font-data); font-size: var(--fs-label);
+        letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-dim);
+    }
+
+    .price-features {
+        list-style: none; margin: 1.4rem 0 0; padding: 0;
+        display: flex; flex-direction: column; gap: 0.75rem; flex: 1 1 auto;
+    }
+    .price-features li {
+        position: relative; padding-left: 1.7rem;
+        font-family: var(--font-read); font-size: var(--fs-body);
+        line-height: 1.45; color: var(--text);
+    }
+    /* Palomita cian en círculo — mismo lenguaje que el acuse del hero (.ok). */
+    .price-features li:not(.price-more)::before {
+        content: '✓'; position: absolute; left: 0; top: 0.05em;
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 1.15rem; height: 1.15rem;
+        border: 1px solid color-mix(in srgb, var(--board) 60%, transparent);
+        border-radius: 50%; color: var(--board);
+        font-size: 0.7rem; font-weight: 700;
+    }
+    /* Divisor "Todo lo de X, y además:" — etiqueta tenue, sin palomita. */
+    .price-more {
+        padding-left: 0; margin-top: 0.2rem;
+        font-family: var(--font-data); font-size: var(--fs-label);
+        letter-spacing: 0.06em; text-transform: uppercase;
+        color: var(--text-dim);
+    }
+
+    /* CTA de cada plan: fantasma (contorno) por defecto, sólido naranja en Pro.
+       Anclada abajo (margin-top:auto) para alinear entre tarjetas. */
+    .price-cta {
+        margin-top: 1.8rem; text-align: center;
+        font-family: var(--font-data); font-weight: 700; font-size: 0.85rem;
+        letter-spacing: 0.06em; text-transform: uppercase; text-decoration: none;
+        padding: 0.85rem 1.2rem; border-radius: var(--radius-sm);
+        border: 1px solid var(--line);
+        transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s, color 0.2s, border-color 0.2s;
+    }
+    .price-cta--ghost { color: var(--board); border-color: color-mix(in srgb, var(--board) 45%, transparent); background: color-mix(in srgb, var(--board) 6%, transparent); }
+    .price-cta--ghost:hover { background: color-mix(in srgb, var(--board) 14%, transparent); border-color: var(--board); transform: translateY(-2px); }
+    .price-cta--solid { color: var(--ink); background: var(--ball); border-color: var(--ball); box-shadow: 0 0 18px var(--ball-glow); }
+    .price-cta--solid:hover { transform: translateY(-2px); box-shadow: 0 8px 26px var(--ball-glow); }
+
+    /* Plan destacado (Pro): barra superior naranja fija (no solo en hover),
+       borde de acción y elevación con sombra real (offset + blur) + luz. */
+    .price-card--featured { border-color: var(--ball); box-shadow: 0 22px 48px -18px var(--shade), 0 0 30px color-mix(in srgb, var(--ball) 14%, transparent); }
+    .price-card--featured::before { transform: scaleX(1); }
+
+    .price-badge {
+        position: absolute; top: 1rem; right: 1rem; z-index: 1;
+        font-family: var(--font-data); font-weight: 700; font-size: 0.62rem;
+        letter-spacing: 0.1em; text-transform: uppercase;
+        color: var(--ink); background: var(--ball);
+        padding: 0.3rem 0.6rem; border-radius: 999px;
+        box-shadow: 0 0 14px var(--ball-glow);
+    }
 
     /* ============================================================
        CTA final — última posesión (acción = naranja sólido)
@@ -387,7 +470,8 @@
         .landing .arcade-stage::after { animation: none; }
         .landing .ag-hint { animation: none; }
         .hero-unlock-btn:not(.is-locked):hover,
-        .rh-card:hover, .btn-action:hover { transform: none; }
+        .rh-card:hover, .btn-action:hover,
+        .price-cta--ghost:hover, .price-cta--solid:hover { transform: none; }
         .hero-unlock-btn.is-unlocking,
         .hero-unlock-btn .lock-ico.is-leaving,
         .hero-progress.is-success,
