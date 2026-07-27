@@ -35,7 +35,7 @@ app.use(helmet({
             scriptSrc: ["'self'"],
             styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
             fontSrc: ["'self'", 'https://fonts.gstatic.com'],
-            imgSrc: ["'self'", 'data:'],
+            imgSrc: ["'self'", 'data:', 'https://res.cloudinary.com'],
             connectSrc: ["'self'"]
         }
     }
@@ -162,51 +162,88 @@ app.get('/perfil-jugador.html', (req, res) => res.render('perfil-jugador'));
 app.get('/admin.html', (req, res) => res.render('admin'));
 app.get('/mesa-control.html', (req, res) => res.render('mesa-control'));
 
-// --- Subida de fotos de jugador desde el dispositivo del usuario ---
+// ==========================================================================
+// Subida de imágenes (logos de franquicia y fotos de jugador).
+//
+// En producción (Vercel) el disco es EFÍMERO: un archivo guardado en disco se
+// pierde al terminar la petición. Por eso, si hay CLOUDINARY_URL definido, las
+// imágenes se suben a Cloudinary (almacenamiento persistente + CDN) y en la BD
+// se guarda la URL remota. Si NO está definido (desarrollo local sin cuenta),
+// se cae automáticamente a guardar en disco bajo public/uploads, como antes.
+// ==========================================================================
+const cloudinary = require('cloudinary').v2;
+const useCloudinary = !!process.env.CLOUDINARY_URL; // el SDK se autoconfigura con esa variable
+
 const playerPhotosDir = path.join(__dirname, 'public', 'uploads', 'players');
-fs.mkdirSync(playerPhotosDir, { recursive: true });
-
-const playerPhotoStorage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, playerPhotosDir),
-    filename: (req, file, cb) => {
-        const uniqueName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${path.extname(file.originalname)}`;
-        cb(null, uniqueName);
-    }
-});
-
-const uploadPlayerPhoto = multer({
-    storage: playerPhotoStorage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-    fileFilter: (req, file, cb) => {
-        if (!file.mimetype.startsWith('image/')) {
-            return cb(new Error('El archivo debe ser una imagen.'));
-        }
-        cb(null, true);
-    }
-});
-
-// --- Subida de logo de franquicia desde el dispositivo del usuario ---
 const teamLogosDir = path.join(__dirname, 'public', 'uploads', 'teams');
-fs.mkdirSync(teamLogosDir, { recursive: true });
+// Solo se necesitan las carpetas locales en el modo disco (dev).
+if (!useCloudinary) {
+    fs.mkdirSync(playerPhotosDir, { recursive: true });
+    fs.mkdirSync(teamLogosDir, { recursive: true });
+}
 
-const teamLogoStorage = multer.diskStorage({
-    destination: (req, file, cb) => cb(null, teamLogosDir),
-    filename: (req, file, cb) => {
-        const uniqueName = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${path.extname(file.originalname)}`;
-        cb(null, uniqueName);
-    }
-});
-
-const uploadTeamLogo = multer({
-    storage: teamLogoStorage,
-    limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-    fileFilter: (req, file, cb) => {
-        if (!file.mimetype.startsWith('image/')) {
-            return cb(new Error('El archivo debe ser una imagen.'));
+// Crea un uploader de multer para imágenes. En modo Cloudinary guarda el archivo
+// en memoria (buffer) para reenviarlo; en modo disco lo escribe en `diskDir`.
+function makeImageUploader(diskDir) {
+    return multer({
+        storage: useCloudinary
+            ? multer.memoryStorage()
+            : multer.diskStorage({
+                destination: (req, file, cb) => cb(null, diskDir),
+                filename: (req, file, cb) => cb(null,
+                    `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${path.extname(file.originalname)}`)
+            }),
+        limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
+        fileFilter: (req, file, cb) => {
+            if (!file.mimetype.startsWith('image/')) {
+                return cb(new Error('El archivo debe ser una imagen.'));
+            }
+            cb(null, true);
         }
-        cb(null, true);
+    });
+}
+
+const uploadPlayerPhoto = makeImageUploader(playerPhotosDir);
+const uploadTeamLogo = makeImageUploader(teamLogosDir);
+
+// Sube un buffer a Cloudinary bajo retrohoops/<folder> y devuelve su URL segura.
+function uploadBufferToCloudinary(buffer, folder) {
+    return new Promise((resolve, reject) => {
+        const stream = cloudinary.uploader.upload_stream(
+            { folder: `retrohoops/${folder}`, resource_type: 'image' },
+            (err, result) => (err ? reject(err) : resolve(result.secure_url))
+        );
+        stream.end(buffer);
+    });
+}
+
+// Resuelve la URL final de la imagen recién subida en una petición ya procesada
+// por multer: sube a Cloudinary (modo remoto) o devuelve la ruta /uploads/ del
+// archivo ya escrito en disco (modo local). Devuelve null si no vino archivo.
+async function resolveUploadedImageUrl(req, folder) {
+    if (!req.file) return null;
+    if (useCloudinary) return uploadBufferToCloudinary(req.file.buffer, folder);
+    return `/uploads/${folder}/${req.file.filename}`;
+}
+
+// Extrae el public_id (con su carpeta) de una URL de Cloudinary para poder borrar
+// el recurso. Ej: .../upload/v123/retrohoops/teams/abc.png -> retrohoops/teams/abc
+function cloudinaryPublicIdFromUrl(url) {
+    const m = url.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+$/);
+    return m ? m[1] : null;
+}
+
+// Borra una imagen previa: de Cloudinary si es una URL suya, del disco si es una
+// ruta local /uploads/. Best-effort: nunca lanza ni bloquea la respuesta.
+function deleteStoredImage(url) {
+    if (!url) return;
+    if (url.includes('res.cloudinary.com')) {
+        const publicId = cloudinaryPublicIdFromUrl(url);
+        if (publicId) cloudinary.uploader.destroy(publicId).catch(() => {});
+    } else if (url.startsWith('/uploads/')) {
+        fs.unlink(path.join(__dirname, 'public', url), () => {});
     }
-});
+}
 
 // "Base de datos" temporal en memoria
 const torneos = [
@@ -639,17 +676,10 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
             prisma.user.delete({ where: { id } })
         ]);
 
-        // Borrar del disco las fotos de los jugadores y los logos de los equipos eliminados (best-effort)
-        ownPlayers.forEach(player => {
-            if (player.photoUrl && player.photoUrl.startsWith('/uploads/players/')) {
-                fs.unlink(path.join(__dirname, 'public', player.photoUrl), () => {});
-            }
-        });
-        ownTeams.forEach(team => {
-            if (team.logoUrl && team.logoUrl.startsWith('/uploads/teams/')) {
-                fs.unlink(path.join(__dirname, 'public', team.logoUrl), () => {});
-            }
-        });
+        // Borrar las imágenes (de Cloudinary o del disco) de jugadores y equipos
+        // eliminados (best-effort).
+        ownPlayers.forEach(player => deleteStoredImage(player.photoUrl));
+        ownTeams.forEach(team => deleteStoredImage(team.logoUrl));
 
         res.json({
             message: 'Usuario eliminado exitosamente junto con sus torneos, franquicias y partidos asociados.',
@@ -1192,7 +1222,7 @@ app.post('/api/teams', authenticateToken, (req, res, next) => {
             }
         }
 
-        const logoUrl = req.file ? `/uploads/teams/${req.file.filename}` : null;
+        const logoUrl = await resolveUploadedImageUrl(req, 'teams');
 
         const newTeam = await prisma.team.create({
             data: {
@@ -1232,7 +1262,8 @@ app.put('/api/teams/:id', authenticateToken, (req, res, next) => {
             return res.status(403).json({ error: 'No tienes permiso para editar esta franquicia' });
         }
 
-        const newLogoUrl = req.file ? `/uploads/teams/${req.file.filename}` : team.logoUrl;
+        const uploadedLogoUrl = await resolveUploadedImageUrl(req, 'teams');
+        const newLogoUrl = uploadedLogoUrl || team.logoUrl;
 
         const updated = await prisma.team.update({
             where: { id },
@@ -1242,8 +1273,8 @@ app.put('/api/teams/:id', authenticateToken, (req, res, next) => {
             }
         });
 
-        if (req.file && team.logoUrl && team.logoUrl.startsWith('/uploads/teams/')) {
-            fs.unlink(path.join(__dirname, 'public', team.logoUrl), () => {});
+        if (uploadedLogoUrl && team.logoUrl) {
+            deleteStoredImage(team.logoUrl);
         }
 
         res.json(updated);
@@ -1287,15 +1318,10 @@ app.delete('/api/teams/:id', authenticateToken, async (req, res) => {
             prisma.team.delete({ where: { id } })
         ]);
 
-        // Borrar del disco las fotos subidas de los jugadores y el logo del equipo eliminado
-        players.forEach(player => {
-            if (player.photoUrl && player.photoUrl.startsWith('/uploads/players/')) {
-                fs.unlink(path.join(__dirname, 'public', player.photoUrl), () => {});
-            }
-        });
-        if (team.logoUrl && team.logoUrl.startsWith('/uploads/teams/')) {
-            fs.unlink(path.join(__dirname, 'public', team.logoUrl), () => {});
-        }
+        // Borrar las imágenes (de Cloudinary o del disco) de los jugadores y el
+        // logo del equipo eliminado (best-effort).
+        players.forEach(player => deleteStoredImage(player.photoUrl));
+        deleteStoredImage(team.logoUrl);
 
         res.json({ message: 'Franquicia eliminada exitosamente' });
     } catch (error) {
@@ -1423,7 +1449,7 @@ app.post('/api/teams/:id/players', authenticateToken, (req, res, next) => {
             return res.status(400).json({ error: `El número ${parsedJersey} ya está en uso en este equipo.` });
         }
 
-        const uploadedPhotoUrl = req.file ? `/uploads/players/${req.file.filename}` : safeUploadUrl(photoUrl);
+        const uploadedPhotoUrl = (await resolveUploadedImageUrl(req, 'players')) || safeUploadUrl(photoUrl);
 
         const newPlayer = await prisma.player.create({
             data: {
@@ -1465,11 +1491,8 @@ app.delete('/api/players/:id', authenticateToken, async (req, res) => {
             prisma.player.delete({ where: { id } })
         ]);
 
-        // Si la foto era un archivo subido por el usuario, la borramos del disco
-        if (player.photoUrl && player.photoUrl.startsWith('/uploads/players/')) {
-            const filePath = path.join(__dirname, 'public', player.photoUrl);
-            fs.unlink(filePath, () => {}); // best-effort, no bloquea la respuesta
-        }
+        // Borrar la foto del jugador (de Cloudinary o del disco), best-effort.
+        deleteStoredImage(player.photoUrl);
 
         res.json({ message: 'Jugador eliminado exitosamente' });
     } catch (error) {
