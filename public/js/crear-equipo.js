@@ -8,10 +8,16 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const token = localStorage.getItem('kphoops_token');
 
-            // Redirigir si no está autenticado
+            // Torneo al que se invita al capitán (viene del enlace de invitación):
+            // se conserva para, al terminar de crear la franquicia, llevarlo a
+            // inscribirse en ese torneo.
+            const tournamentId = new URLSearchParams(window.location.search).get('tournamentId');
+
+            // Si no hay sesión, mandarlo a REGISTRARSE (no a login) y volver aquí
+            // después. Así el flujo de invitación es: registro -> crear franquicia.
             if (!token) {
-                showToast("Debes iniciar sesión para crear una franquicia.", 'error');
-                setTimeout(() => window.location.href = 'login.html', 1500);
+                const next = window.location.pathname + window.location.search;
+                window.location.href = '/registro.html?next=' + encodeURIComponent(next);
                 return;
             }
 
@@ -277,13 +283,19 @@
                         }
                     }
 
-                    // Éxito total
+                    // Éxito total. Si venía de un enlace de invitación a un torneo,
+                    // lo mandamos a ese torneo para inscribir su franquicia; si no,
+                    // a la página de su equipo.
                     savingMsg.className = 'success-msg';
-                    savingMsg.textContent = '✅ ¡Franquicia y jugadores guardados! Ahora inscríbela en un torneo...';
+                    savingMsg.textContent = tournamentId
+                        ? '✅ ¡Franquicia lista! Llevándote al torneo para inscribirte...'
+                        : '✅ ¡Franquicia y jugadores guardados! Ahora inscríbela en un torneo...';
                     showToast('¡Todo guardado!', 'success');
 
                     setTimeout(() => {
-                        window.location.href = `/equipo.html?id=${currentTeamId}`;
+                        window.location.href = tournamentId
+                            ? `/torneo.html?id=${tournamentId}`
+                            : `/equipo.html?id=${currentTeamId}`;
                     }, 2000);
 
                 } catch (error) {

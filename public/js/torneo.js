@@ -1207,8 +1207,12 @@ document.addEventListener('click', (e) => {
                     const copyInviteLink = async (e) => {
                         e.preventDefault();
                         try {
-                            await navigator.clipboard.writeText(window.location.href);
-                            showToast('Enlace copiado al portapapeles', 'success');
+                            // Enlace de invitación: lleva al capitán a crear su franquicia
+                            // (registrándose antes si hace falta) ya asociada a este torneo,
+                            // en vez de a la página del torneo tal cual.
+                            const inviteUrl = `${window.location.origin}/crear-equipo.html?tournamentId=${tournamentId}`;
+                            await navigator.clipboard.writeText(inviteUrl);
+                            showToast('Enlace de invitación copiado', 'success');
                         } catch (err) {
                             showToast('No se pudo copiar el enlace', 'error');
                         }

@@ -40,8 +40,14 @@
 
                     if (typeof showToast === 'function') showToast('Inicio de sesión exitoso', 'success');
 
+                    // Volver al destino de retorno si vino uno (ej. flujo de
+                    // invitación a un torneo). Solo rutas internas: se acepta un
+                    // ?next= que empiece con "/" pero no "//" (anti open-redirect).
+                    const nextParam = new URLSearchParams(window.location.search).get('next');
+                    const dest = (typeof nextParam === 'string' && /^\/(?!\/)/.test(nextParam)) ? nextParam : '/ligas.html';
+
                     setTimeout(() => {
-                        window.location.href = '/ligas.html';
+                        window.location.href = dest;
                     }, 1000);
                 } else {
                     if (typeof showToast === 'function') {
