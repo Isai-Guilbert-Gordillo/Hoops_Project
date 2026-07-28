@@ -51,6 +51,8 @@
                         localStorage.setItem('kphoops_user_name', ld.user.firstName);
                         localStorage.setItem('kphoops_user_role', ld.user.role);
                     }
+                    // Reiniciar el reloj de inactividad al abrir sesión.
+                    localStorage.setItem('kphoops_last_activity', String(Date.now()));
                     showToast('¡Cuenta creada! Entrando...', 'success');
                     setTimeout(() => window.location.href = dest, 1000);
                 } else {

@@ -43,6 +43,9 @@
                         localStorage.setItem('kphoops_user_name', data.user.firstName);
                         localStorage.setItem('kphoops_user_role', data.user.role);
                     }
+                    // Reiniciar el reloj de inactividad al iniciar sesión, para
+                    // que la sesión recién abierta no se cierre de inmediato.
+                    localStorage.setItem('kphoops_last_activity', String(Date.now()));
 
                     if (typeof showToast === 'function') showToast('Inicio de sesión exitoso', 'success');
 

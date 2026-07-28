@@ -34,6 +34,10 @@
             localStorage.removeItem(TOKEN_KEY);
             localStorage.removeItem('kphoops_user_name');
             localStorage.removeItem('kphoops_user_role');
+            // Importante: borrar también la marca de actividad para que un login
+            // posterior NO se cierre de inmediato leyendo un valor viejo (evita
+            // el bucle login -> "inactividad" -> login).
+            localStorage.removeItem(ACTIVITY_KEY);
         } catch (e) {}
     }
 
