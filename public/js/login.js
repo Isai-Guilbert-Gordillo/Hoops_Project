@@ -1,5 +1,11 @@
 // RETRO HOOPS · login — lógica de página (extraída del <script> inline).
 
+        // Aviso cuando se llega aquí por cierre de sesión por inactividad.
+        if (new URLSearchParams(window.location.search).get('timeout') === '1'
+            && typeof showToast === 'function') {
+            showToast('Tu sesión se cerró por inactividad. Inicia sesión de nuevo.', 'info');
+        }
+
         // 1. Lógica para el botón de Mostrar/Ocultar Contraseña
         const togglePwdBtn = document.getElementById('toggle-pwd');
         const pwdInput = document.getElementById('password');
