@@ -408,10 +408,12 @@
 
         // El aro oscila en vertical y la dificultad crece con el nivel: al inicio
         // (nivel 0) está QUIETO —fácil, para desbloquear el registro— y va tomando
-        // más amplitud y velocidad conforme anotas. Con movimiento reducido, fijo.
+        // más amplitud y velocidad conforme anotas. NO se desactiva con movimiento
+        // reducido: es mecánica de juego (dificultad), no decoración, y el balón
+        // ya se mueve igual.
         function updateHoop() {
             const lvl = difficultyLevel();
-            if (reduceMotion || lvl === 0) {
+            if (lvl === 0) {
                 rimY = rimYBase; bbTop = bbTopBase; bbBottom = bbBottomBase;
                 return;
             }
