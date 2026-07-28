@@ -32,8 +32,12 @@
         const C = { orange:'#ff6a00', orange2:'#ff8c1a', pink:'#ff2e9f', cyan:'#00f0ff', gold:'#ffd700', purple:'#7b2ff7', purpleDeep:'#190a2e' };
 
         // ---- Geometría del aro (vista lateral; tablero a la derecha) ----
-        const rimY = 112, rimFront = 248, rimBack = 292;
-        const backboardX = 292, bbTop = 28, bbBottom = 115;
+        const rimFront = 248, rimBack = 292, backboardX = 292;
+        // Posición base del aro/tablero. rimY/bbTop/bbBottom son MUTABLES porque el
+        // aro oscila verticalmente conforme sube la dificultad (ver updateHoop()).
+        const rimYBase = 112, bbTopBase = 28, bbBottomBase = 115;
+        let rimY = rimYBase, bbTop = bbTopBase, bbBottom = bbBottomBase;
+        let hoopPhase = 0;
         const ballR = 13, floorY = H - 6;
 
         const threeLineX = 50;
@@ -402,9 +406,28 @@
             ctx.restore(); // shake
         }
 
+        // El aro oscila en vertical y la dificultad crece con el nivel: al inicio
+        // (nivel 0) está QUIETO —fácil, para desbloquear el registro— y va tomando
+        // más amplitud y velocidad conforme anotas. Con movimiento reducido, fijo.
+        function updateHoop() {
+            const lvl = difficultyLevel();
+            if (reduceMotion || lvl === 0) {
+                rimY = rimYBase; bbTop = bbTopBase; bbBottom = bbBottomBase;
+                return;
+            }
+            const amp = Math.min(6 + lvl * 4, 22);            // amplitud (px), tope 22
+            const spd = 0.018 + Math.min(lvl * 0.006, 0.05);  // velocidad angular
+            hoopPhase += spd;
+            const dy = Math.sin(hoopPhase) * amp;
+            rimY = rimYBase + dy;
+            bbTop = bbTopBase + dy;
+            bbBottom = bbBottomBase + dy;
+        }
+
         // ---- Loop con pausa por visibilidad ----
         let raf = null, running = false;
         function frame() {
+            updateHoop();
             step();
             for (let i = particles.length - 1; i >= 0; i--) { const p = particles[i]; p.vy += 0.12; p.x += p.vx; p.y += p.vy; if (--p.life <= 0) particles.splice(i, 1); }
             if (rimFlash > 0) rimFlash--;
