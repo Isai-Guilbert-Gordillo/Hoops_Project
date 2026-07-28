@@ -54,7 +54,10 @@
         let aimStart = null, aimNow = null;
         let particles = [], rimFlash = 0, floatText = null;
         let firstShot = false, muted = false, resetScheduled = false;
-        let missCount = 0;
+        // Récord (máximo histórico) persistido en el navegador, y total de canastas
+        // para el desbloqueo del registro (ese contador NO se reinicia al fallar).
+        let record = parseInt(localStorage.getItem('kphoops_hoop_record') || '0', 10) || 0;
+        let totalMade = 0;
         // Toques puramente visuales (no tocan la física del tiro):
         let ballSpin = 0;   // ángulo acumulado del giro del balón en vuelo
         let netSway = 0;    // la red "vibra" un instante al anotar
@@ -67,8 +70,9 @@
             ball.x = curSpot.x; ball.y = floorY - ballR; ball.vx = 0; ball.vy = 0;
             ball.scored = false; state = 'ready';
         }
-        // Nivel de dificultad: sube un escalón cada 4 canastas.
-        function difficultyLevel() { return Math.floor(score / 4); }
+        // Nivel de dificultad: sube un escalón cada 3 puntos del marcador actual
+        // (que se reinicia al fallar), así cada partida se endurece rápido.
+        function difficultyLevel() { return Math.floor(score / 3); }
 
         function nextSpot() {
             // La ventana de spots posibles se desplaza hacia los tiros lejanos
@@ -85,6 +89,7 @@
             placeBall();
         }
         placeBall();
+        updateStreak(); // muestra "RÉCORD: N" desde el inicio
 
         // ---- Sonido retro ----
         function swish() {
@@ -152,11 +157,21 @@
             ball.vx = (ball.vx - 2 * dot * nx) * damp;
             ball.vy = (ball.vy - 2 * dot * ny) * damp;
         }
-        function updateStreak() { streakEl.textContent = streak >= 2 ? ('¡RACHA x' + streak + '!') : ''; }
+        function updateStreak() {
+            const parts = ['RÉCORD: ' + record];
+            if (streak >= 2) parts.push('¡RACHA x' + streak + '!');
+            streakEl.textContent = parts.join('   ·   ');
+        }
         function onScore(is3) {
             const pts = is3 ? 3 : 2;
-            score += pts; streak++; scoreEl.textContent = score; updateStreak();
-            window.dispatchEvent(new CustomEvent('hoops:score', { detail: { score: score } }));
+            score += pts; streak++; totalMade++;
+            scoreEl.textContent = score;
+            if (score > record) {
+                record = score;
+                try { localStorage.setItem('kphoops_hoop_record', String(record)); } catch (e) {}
+            }
+            updateStreak();
+            window.dispatchEvent(new CustomEvent('hoops:score', { detail: { score: score, total: totalMade } }));
             if (!reduceMotion) {
                 rimFlash = 26;
                 netSway = 16;
@@ -189,13 +204,20 @@
             if (resetScheduled) return;
             resetScheduled = true;
             if (!made) {
-                streak = 0; updateStreak();
-                missCount++;
-                if (missCount === 3) { playBoo(); missCount = 0; }
-            } else {
-                missCount = 0;
+                // FALLO: se acaba la partida. El marcador vuelve a 0 (el récord ya
+                // quedó guardado). Lo divertido es superar tu propio récord.
+                const lost = score;
+                streak = 0; score = 0; scoreEl.textContent = 0; updateStreak();
+                if (lost > 0) {
+                    playBoo();
+                    // Centrado en la cancha (al fallar, el balón ya salió de pantalla).
+                    floatText = {
+                        x: W / 2, y: H / 2, txt: '¡FALLASTE!',
+                        life: reduceMotion ? 26 : 54, color: C.pink, big: true
+                    };
+                }
             }
-            setTimeout(() => { resetScheduled = false; nextSpot(); }, made ? 700 : 450);
+            setTimeout(() => { resetScheduled = false; nextSpot(); }, made ? 700 : 550);
         }
         function step() {
             if (state !== 'flying') return;
@@ -417,8 +439,8 @@
                 rimY = rimYBase; bbTop = bbTopBase; bbBottom = bbBottomBase;
                 return;
             }
-            const amp = Math.min(6 + lvl * 4, 22);            // amplitud (px), tope 22
-            const spd = 0.018 + Math.min(lvl * 0.006, 0.05);  // velocidad angular
+            const amp = Math.min(10 + lvl * 5, 24);           // amplitud (px), tope 24
+            const spd = 0.03 + Math.min(lvl * 0.01, 0.06);    // velocidad angular
             hoopPhase += spd;
             const dy = Math.sin(hoopPhase) * amp;
             rimY = rimYBase + dy;
@@ -497,9 +519,12 @@
         }
 
         window.addEventListener('hoops:score', (e) => {
-            const s = (e.detail && e.detail.score) || 0;
-            if (s >= GOAL) { unlock(); return; }
-            note.innerHTML = 'Vas <b>' + s + '/' + GOAL + '</b> — encesta en la cancha para desbloquear tu registro.';
+            // Se usa el TOTAL de canastas (no el marcador, que se reinicia al
+            // fallar) para desbloquear: basta con hacer 3 canastas en total,
+            // aunque falles entre medias.
+            const total = (e.detail && e.detail.total) || 0;
+            if (total >= GOAL) { unlock(); return; }
+            note.innerHTML = 'Vas <b>' + total + '/' + GOAL + '</b> — encesta en la cancha para desbloquear tu registro.';
         });
 
         btn.addEventListener('click', (e) => { if (btn.classList.contains('is-locked')) e.preventDefault(); });
