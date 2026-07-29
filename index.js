@@ -299,7 +299,10 @@ app.get('/api/tournaments', optionalAuthenticateToken, async (req, res) => {
             include: {
                 organizer: {
                     select: { id: true, firstName: true, lastName: true, email: true }
-                }
+                },
+                // Cuántas franquicias hay ya inscritas: el modal de edición lo usa
+                // para avisar de que los cupos no pueden bajar de ese número.
+                _count: { select: { enrollments: true } }
             },
             orderBy: {
                 createdAt: 'desc'
@@ -312,6 +315,7 @@ app.get('/api/tournaments', optionalAuthenticateToken, async (req, res) => {
             category: t.category,
             venue: t.venue,
             maxTeams: t.maxTeams,
+            enrolledTeams: t._count.enrollments,
             startDate: t.startDate,
             organizerId: t.organizerId,
             organizer: t.organizer,
@@ -361,6 +365,23 @@ app.put('/api/tournaments/:id', authenticateToken, async (req, res) => {
             const parsed = parseInt(maxTeams, 10);
             if (!Number.isInteger(parsed) || parsed < 2 || parsed > FREE_PLAN_LIMITS.MAX_TEAMS_PER_TOURNAMENT) {
                 return res.status(400).json({ error: `Los cupos deben estar entre 2 y ${FREE_PLAN_LIMITS.MAX_TEAMS_PER_TOURNAMENT}.` });
+            }
+
+            // Bajar los cupos por debajo de las franquicias ya inscritas dejaría
+            // el torneo en un estado imposible (más inscritos que plazas), así que
+            // se rechaza indicando el mínimo real.
+            const enrolledCount = await prisma.tournamentEnrollment.count({ where: { tournamentId: id } });
+            if (parsed < enrolledCount) {
+                return res.status(400).json({
+                    error: `Ya hay ${enrolledCount} franquicia(s) inscritas: los cupos no pueden bajar de ${enrolledCount}. Da de baja alguna antes de reducirlos.`
+                });
+            }
+        }
+
+        if (startDate !== undefined && startDate !== '') {
+            const parsedDate = new Date(startDate);
+            if (isNaN(parsedDate.getTime())) {
+                return res.status(400).json({ error: 'Indica una fecha de inicio válida para el torneo.' });
             }
         }
 
@@ -448,13 +469,29 @@ app.get('/api/tournaments/:id', optionalAuthenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Torneo no encontrado' });
         }
 
-        // 1. Forzamos ambos valores a String para evitar problemas de tipos ("1" vs 1)
+        // Forzamos ambos valores a String para evitar problemas de tipos ("1" vs 1)
         const isOrganizer = req.user ? String(req.user.id) === String(tournament.organizerId) : false;
 
-        // 2. Chivato en consola para ver exactamente qué está comparando el servidor
-        console.log("-> Chequeo de Seguridad | Mi ID:", req.user?.id, "| Dueño del Torneo:", tournament.organizerId, "| ¿Soy Organizador?:", isOrganizer);
+        // Los datos de pago (cuánto lleva pagado cada franquicia y cuánto debe) son
+        // información privada entre el organizador y ese capitán: no pueden viajar a
+        // cualquiera que abra el enlace público del torneo. Ve los importes:
+        //  - el organizador del torneo y los ADMIN, para toda la liga;
+        //  - cada capitán, solo los de su propia franquicia.
+        // Al resto se le quitan los campos del payload (no basta con ocultarlos en el
+        // front: la respuesta de la API es igual de pública).
+        const canSeeAllPayments = isOrganizer || (req.user ? await userIsAdmin(req.user.id) : false);
+        const enrollments = tournament.enrollments.map(enrollment => {
+            const isOwnTeam = req.user
+                ? String(enrollment.team.captainId) === String(req.user.id)
+                : false;
 
-        res.status(200).json({ ...tournament, isOrganizer });
+            if (canSeeAllPayments || isOwnTeam) return enrollment;
+
+            const { amountPaid, paymentStatus, paymentDate, ...visible } = enrollment;
+            return visible;
+        });
+
+        res.status(200).json({ ...tournament, enrollments, isOrganizer });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al obtener el torneo' });
@@ -971,7 +1008,11 @@ app.get('/api/matches/:id', async (req, res) => {
             include: {
                 homeTeam: { include: { players: true } },
                 awayTeam: { include: { players: true } },
-                tournament: true
+                tournament: true,
+                // Las stats ya cargadas viajan con el partido para que la mesa de
+                // control pueda reconstruir el marcador y el boxscore si se recarga
+                // la página a mitad del partido.
+                stats: true
             }
         });
 

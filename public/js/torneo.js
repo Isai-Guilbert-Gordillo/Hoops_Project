@@ -269,8 +269,12 @@ document.addEventListener('click', (e) => {
         document.getElementById('tournament-venue').innerText = window.toTitleCaseDisplay(tournament.venue);
         document.getElementById('tournament-max').innerText = tournament.maxTeams;
                 
+                // La fecha de inicio es un día suelto guardado a medianoche UTC:
+                // formatearla en horario local la retrasaba un día en cualquier
+                // zona al oeste de Greenwich (se creaba el 10/8 y se leía 9/8).
                 const theDate = new Date(tournament.startDate);
-                document.getElementById('tournament-date').innerText = theDate.toLocaleDateString('es-ES');
+                document.getElementById('tournament-date').innerText =
+                    theDate.toLocaleDateString('es-ES', { timeZone: 'UTC' });
 
                 document.getElementById('tournament-hero').style.display = 'block';
                 document.getElementById('teams-header').style.display = 'block';
@@ -305,9 +309,15 @@ document.addEventListener('click', (e) => {
                         const paidPct = cost > 0 ? Math.min(100, Math.round((paid / cost) * 100)) : 0;
                         const isPaid = cost > 0 && pending <= 0;
 
+                        // El backend solo manda los campos de pago a quien puede verlos
+                        // (organizador, admin, o el capitán de esa misma franquicia).
+                        // Si no vienen, aquí no se pinta nada de dinero: un visitante
+                        // cualquiera no tiene por qué saber quién va al día y quién debe.
+                        const canSeePayment = enrollment.amountPaid !== undefined;
+
                         let statusBadge = '';
                         let paymentInfo = '';
-                        if (cost > 0) {
+                        if (cost > 0 && canSeePayment) {
                             statusBadge = isPaid
                                 ? `<span class="enr-badge is-paid">Pagado</span>`
                                 : `<span class="enr-badge is-debt">Debe $${pending}</span>`;

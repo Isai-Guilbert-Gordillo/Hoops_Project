@@ -170,12 +170,20 @@
             // ========== AGREGAR JUGADOR A LA LISTA (local) ==========
             btnAddPlayer.addEventListener('click', () => {
                 const playerName = toTitleCase(document.getElementById('playerName').value.trim());
-                const playerNumber = parseInt(document.getElementById('playerNumber').value);
+                const playerNumber = parseInt(document.getElementById('playerNumber').value, 10);
                 const playerPosition = document.getElementById('playerPosition').value;
 
-                // Validación
-                if (!playerName || !playerNumber || !playerPosition) {
+                // Validación. El dorsal se comprueba aparte del resto: con un
+                // "!playerNumber" el número 0 —que es un dorsal válido y que el
+                // propio input admite con min="0"— se trataba como campo vacío y
+                // se rechazaba con el mensaje engañoso de "completa los campos".
+                if (!playerName || !playerPosition) {
                     showToast('Completa todos los campos del jugador', 'error');
+                    return;
+                }
+
+                if (!Number.isInteger(playerNumber) || playerNumber < 0 || playerNumber > 99) {
+                    showToast('El dorsal debe ser un número entre 0 y 99', 'error');
                     return;
                 }
 

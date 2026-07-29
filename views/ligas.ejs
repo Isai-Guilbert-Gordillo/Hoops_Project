@@ -84,11 +84,27 @@
                 </div>
                 <div class="form-group">
                     <label for="edit-t-category">Formato</label>
-                    <input type="text" id="edit-t-category" required>
+                    <!-- Mismas opciones que al crear el torneo: si aquí se admite
+                         texto libre, un "5vs5" deja la liga fuera del filtro de
+                         formato de esta misma página. -->
+                    <select id="edit-t-category" required>
+                        <option value="3x3">3x3 Streetball</option>
+                        <option value="5x5">5x5 Tradicional</option>
+                        <option value="1x1">1x1 Duelos</option>
+                    </select>
                 </div>
                 <div class="form-group">
                     <label for="edit-t-venue">Sede</label>
                     <input type="text" id="edit-t-venue">
+                </div>
+                <div class="form-group">
+                    <label for="edit-t-maxteams">Máx. de Equipos / Franquicias</label>
+                    <input type="number" id="edit-t-maxteams" min="2" max="16" required>
+                    <small class="form-hint" id="edit-t-maxteams-hint"></small>
+                </div>
+                <div class="form-group">
+                    <label for="edit-t-startdate">Fecha de Inicio</label>
+                    <input type="date" id="edit-t-startdate" required>
                 </div>
                 <div class="modal-actions">
                     <button type="submit" class="btn-submit">Guardar Cambios</button>
