@@ -1878,6 +1878,87 @@ app.get('/api/tournaments/:id/leaders', async (req, res) => {
     }
 });
 
+// Tabla de la FASE REGULAR, ordenada, para sembrar los playoffs. Solo cuenta
+// partidos con stage REGULAR: si se colaran los de eliminatoria, el sembrado
+// cambiaría a mitad de la propia eliminatoria.
+async function getRegularSeasonSeeding(tournamentId) {
+    const enrollments = await prisma.tournamentEnrollment.findMany({
+        where: { tournamentId },
+        include: { team: true }
+    });
+
+    const matches = await prisma.match.findMany({
+        where: { tournamentId, status: 'FINISHED', stage: 'REGULAR' }
+    });
+
+    const standings = enrollments.map(e => ({ teamId: e.team.id, pj: 0, g: 0, p: 0, pf: 0, pc: 0, diff: 0 }));
+
+    matches.forEach(match => {
+        const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
+        const awayTeam = standings.find(s => s.teamId === match.awayTeamId);
+
+        if (homeTeam && awayTeam) {
+            homeTeam.pj += 1; homeTeam.pf += match.homeScore; homeTeam.pc += match.awayScore;
+            awayTeam.pj += 1; awayTeam.pf += match.awayScore; awayTeam.pc += match.homeScore;
+            if (match.homeScore > match.awayScore) { homeTeam.g += 1; awayTeam.p += 1; }
+            else if (match.awayScore > match.homeScore) { awayTeam.g += 1; homeTeam.p += 1; }
+        }
+    });
+
+    standings.forEach(s => { s.diff = s.pf - s.pc; });
+    standings.sort((a, b) => {
+        if (b.g !== a.g) return b.g - a.g;
+        return b.diff - a.diff;
+    });
+
+    // Solo entran al cuadro los que de verdad jugaron la fase regular.
+    return standings.filter(s => s.pj > 0);
+}
+
+// Elige la primera ronda según cuántos equipos hay. Antes solo existía el cuadro
+// de 8 y una liga de 4 o 6 equipos —lo normal en el básquet de barrio— se
+// quedaba sin eliminatorias, sin más salida que borrar la liga entera.
+//
+//   8 o más : Cuartos con los 8 mejores (1-8, 4-5, 2-7, 3-6)
+//   6 o 7   : Cuartos entre 3-6 y 4-5; los sembrados 1 y 2 pasan con bye
+//   4 o 5   : arranca en Semifinales (1-4, 2-3)
+//   2 o 3   : arranca directo en la Gran Final (1-2)
+function planFirstPlayoffRound(seeded) {
+    const n = seeded.length;
+    const id = i => seeded[i].teamId;
+
+    if (n >= 8) {
+        return {
+            stage: 'CUARTOS',
+            pairs: [[id(0), id(7)], [id(3), id(4)], [id(1), id(6)], [id(2), id(5)]]
+        };
+    }
+
+    if (n >= 6) {
+        // Orden importante: la semifinal empareja al sembrado 1 con el ganador
+        // del primer cruce y al 2 con el del segundo (el 1 se enfrenta al peor
+        // sembrado que sobreviva).
+        return {
+            stage: 'CUARTOS',
+            pairs: [[id(3), id(4)], [id(2), id(5)]],
+            byes: [id(0), id(1)]
+        };
+    }
+
+    if (n >= 4) {
+        return {
+            stage: 'SEMIFINAL',
+            pairs: [[id(0), id(3)], [id(1), id(2)]]
+        };
+    }
+
+    if (n >= 2) {
+        return { stage: 'FINAL', pairs: [[id(0), id(1)]] };
+    }
+
+    return null;
+}
+
 // Avanza automáticamente Cuartos->Semis o Semis->Final cuando la ronda
 // correspondiente ya terminó por completo. NO genera Cuartos desde la fase
 // regular (eso sigue siendo una decisión explícita del organizador, vía el
@@ -1898,20 +1979,36 @@ async function tryAutoAdvancePlayoffs(tournamentId) {
     if (finales.length > 0) return null;
 
     // Cuartos -> Semis
-    if (cuartos.length === 4 && semis.length === 0 && cuartos.every(m => m.status === 'FINISHED')) {
-        const win1 = cuartos[0].homeScore > cuartos[0].awayScore ? cuartos[0].homeTeamId : cuartos[0].awayTeamId;
-        const win2 = cuartos[1].homeScore > cuartos[1].awayScore ? cuartos[1].homeTeamId : cuartos[1].awayTeamId;
-        const win3 = cuartos[2].homeScore > cuartos[2].awayScore ? cuartos[2].homeTeamId : cuartos[2].awayTeamId;
-        const win4 = cuartos[3].homeScore > cuartos[3].awayScore ? cuartos[3].homeTeamId : cuartos[3].awayTeamId;
+    if (cuartos.length > 0 && semis.length === 0 && cuartos.every(m => m.status === 'FINISHED')) {
+        const winnerOf = m => (m.homeScore > m.awayScore ? m.homeTeamId : m.awayTeamId);
+        const winners = cuartos.map(winnerOf);
+        let semiPairs = null;
+
+        if (cuartos.length === 4) {
+            semiPairs = [[winners[0], winners[1]], [winners[2], winners[3]]];
+        } else if (cuartos.length === 2) {
+            // Cuadro de 6: los sembrados 1 y 2 entraron con bye y ahora se cruzan
+            // con los ganadores. Se identifican como los equipos de la fase regular
+            // que NO jugaron cuartos, en orden de tabla.
+            const seeded = await getRegularSeasonSeeding(tournamentId);
+            const playedQuarters = new Set(cuartos.flatMap(m => [m.homeTeamId, m.awayTeamId]));
+            const byes = seeded.filter(s => !playedQuarters.has(s.teamId)).slice(0, 2).map(s => s.teamId);
+
+            if (byes.length === 2) {
+                semiPairs = [[byes[0], winners[0]], [byes[1], winners[1]]];
+            }
+        }
+
+        if (!semiPairs) return null;
 
         const matchDate1 = new Date(); matchDate1.setDate(matchDate1.getDate() + 7);
         const matchDate2 = new Date(matchDate1); matchDate2.setHours(matchDate1.getHours() + 2);
 
         await prisma.match.create({
-            data: { tournamentId, homeTeamId: win1, awayTeamId: win2, matchDate: matchDate1, stage: 'SEMIFINAL' }
+            data: { tournamentId, homeTeamId: semiPairs[0][0], awayTeamId: semiPairs[0][1], matchDate: matchDate1, stage: 'SEMIFINAL' }
         });
         await prisma.match.create({
-            data: { tournamentId, homeTeamId: win3, awayTeamId: win4, matchDate: matchDate2, stage: 'SEMIFINAL' }
+            data: { tournamentId, homeTeamId: semiPairs[1][0], awayTeamId: semiPairs[1][1], matchDate: matchDate2, stage: 'SEMIFINAL' }
         });
         return 'SEMIFINAL';
     }
@@ -1965,7 +2062,7 @@ app.post('/api/tournaments/:id/playoffs', authenticateToken, async (req, res) =>
         // REGLAS 2 y 3 (Cuartos->Semis, Semis->Final): desde que el auto-avance
         // existe, esto normalmente ya ocurrió solo al guardar el último resultado
         // de la ronda. Este botón manual queda como respaldo/fallback.
-        if ((cuartos.length === 4 && semis.length === 0) || (semis.length === 2 && finales.length === 0)) {
+        if ((cuartos.length > 0 && semis.length === 0) || (semis.length === 2 && finales.length === 0)) {
             const currentStageMatches = semis.length === 2 ? semis : cuartos;
             const currentStageName = semis.length === 2 ? 'Semifinales' : 'Cuartos de Final';
             if (currentStageMatches.some(m => m.status !== 'FINISHED')) {
@@ -1979,61 +2076,38 @@ app.post('/api/tournaments/:id/playoffs', authenticateToken, async (req, res) =>
             return res.status(201).json({ message, stage: advancedStage });
         }
 
-        // REGLA 1: Generar Cuartos
-        if (cuartos.length === 0) {
-            // Obtener equipos inscritos
-            const enrollments = await prisma.tournamentEnrollment.findMany({
-                where: { tournamentId },
-                include: { team: true }
-            });
+        // REGLA 1: arrancar las eliminatorias. La ronda inicial depende de cuántos
+        // equipos jugaron la fase regular, no siempre son Cuartos.
+        if (playoffMatches.length === 0) {
+            const seeded = await getRegularSeasonSeeding(tournamentId);
+            const plan = planFirstPlayoffRound(seeded);
 
-            const teams = enrollments.map(e => e.team);
-
-            // Obtener partidos FINISHED en fase REGULAR para standings
-            const matches = await prisma.match.findMany({
-                where: { tournamentId, status: 'FINISHED', stage: 'REGULAR' }
-            });
-
-            // Inicializar standings
-            const standings = teams.map(team => ({ teamId: team.id, pj: 0, g: 0, p: 0, pf: 0, pc: 0, diff: 0 }));
-
-            // Calcular estadísticas
-            matches.forEach(match => {
-                const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
-                const awayTeam = standings.find(s => s.teamId === match.awayTeamId);
-
-                if (homeTeam && awayTeam) {
-                    homeTeam.pj += 1; homeTeam.pf += match.homeScore; homeTeam.pc += match.awayScore;
-                    awayTeam.pj += 1; awayTeam.pf += match.awayScore; awayTeam.pc += match.homeScore;
-                    if (match.homeScore > match.awayScore) { homeTeam.g += 1; awayTeam.p += 1; } 
-                    else if (match.awayScore > match.homeScore) { awayTeam.g += 1; homeTeam.p += 1; }
-                }
-            });
-
-            // Calcular diferencia y ordenar
-            standings.forEach(s => { s.diff = s.pf - s.pc; });
-            standings.sort((a, b) => {
-                if (b.g !== a.g) return b.g - a.g;
-                return b.diff - a.diff;
-            });
-
-            const activeTeams = standings.filter(s => s.pj > 0);
-
-            if (activeTeams.length < 8) {
-                return res.status(400).json({ error: 'Se necesitan al menos 8 equipos con partidos jugados para generar los cuartos de final.' });
+            if (!plan) {
+                return res.status(400).json({
+                    error: `Se necesitan al menos 2 equipos con partidos jugados para armar las eliminatorias. Ahora mismo hay ${seeded.length}.`
+                });
             }
 
-            const top8 = activeTeams.slice(0, 8);
             const matchDate = new Date();
             matchDate.setDate(matchDate.getDate() + 7);
 
-            // Llave 1 (1ro vs 8vo), Llave 2 (4to vs 5to), Llave 3 (2do vs 7mo) y Llave 4 (3ro vs 6to)
-            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[0].teamId, awayTeamId: top8[7].teamId, matchDate, stage: 'CUARTOS' }});
-            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[3].teamId, awayTeamId: top8[4].teamId, matchDate, stage: 'CUARTOS' }});
-            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[1].teamId, awayTeamId: top8[6].teamId, matchDate, stage: 'CUARTOS' }});
-            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[2].teamId, awayTeamId: top8[5].teamId, matchDate, stage: 'CUARTOS' }});
+            for (const [homeTeamId, awayTeamId] of plan.pairs) {
+                await prisma.match.create({
+                    data: { tournamentId, homeTeamId, awayTeamId, matchDate, stage: plan.stage }
+                });
+            }
 
-            return res.status(201).json({ message: 'Cuartos de final generados exitosamente', stage: 'CUARTOS' });
+            const STAGE_DONE = {
+                CUARTOS: 'Cuartos de final generados',
+                SEMIFINAL: 'Semifinales generadas',
+                FINAL: 'Gran Final generada'
+            };
+            const byeCount = plan.byes ? plan.byes.length : 0;
+            const message = byeCount > 0
+                ? `${STAGE_DONE[plan.stage]}. Los ${byeCount} primeros de la tabla pasan directos a semifinales.`
+                : `${STAGE_DONE[plan.stage]} exitosamente`;
+
+            return res.status(201).json({ message, stage: plan.stage, byes: byeCount });
         }
 
         return res.status(400).json({ error: 'Estado de playoffs inválido o fuera de flujo.' });

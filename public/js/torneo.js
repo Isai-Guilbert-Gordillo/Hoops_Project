@@ -698,10 +698,26 @@ document.addEventListener('click', (e) => {
                         semisMatches.forEach(m => renderBracketMatch(m, 'col-semis'));
                         finalMatches.forEach(m => renderBracketMatch(m, 'col-final'));
 
-                        // Placeholders: semis pendientes de que terminen los 4 cuartos
+                        // Una liga de 4 equipos arranca en Semifinal y una de 2-3
+                        // directamente en la Final: las columnas anteriores no
+                        // existen y se ocultan con su conector, en vez de dejar
+                        // una columna "Cuartos" vacía que parece un error.
+                        const toggleBracketColumn = (colId, visible) => {
+                            const col = document.getElementById(colId);
+                            if (!col) return;
+                            col.style.display = visible ? '' : 'none';
+                            const connector = col.nextElementSibling;
+                            if (connector && connector.classList.contains('bracket-connector')) {
+                                connector.style.display = visible ? '' : 'none';
+                            }
+                        };
+                        toggleBracketColumn('col-cuartos', cuartosMatches.length > 0);
+                        toggleBracketColumn('col-semis', cuartosMatches.length > 0 || semisMatches.length > 0);
+
+                        // Placeholders: semis pendientes de que terminen los cuartos
+                        // (son 2 tanto en el cuadro de 8 como en el de 6 con byes).
                         if (semisMatches.length === 0 && cuartosMatches.length > 0) {
-                            const remaining = cuartosMatches.filter(m => !isMatchDone(m)).length || 2;
-                            for (let i = 0; i < Math.min(remaining, 2); i++) {
+                            for (let i = 0; i < 2; i++) {
                                 renderPlaceholder('col-semis', 'Esperando resultados de Cuartos');
                             }
                         }
@@ -727,13 +743,42 @@ document.addEventListener('click', (e) => {
                         const playoffsHint = document.getElementById('playoffs-hint');
                         if (btnPlayoffs) {
                             const btnLabel = btnPlayoffs.querySelector('.btn-content');
-                            const cuartosFinished = cuartosMatches.length === 4 && cuartosMatches.every(isMatchDone);
+                            const cuartosFinished = cuartosMatches.length > 0 && cuartosMatches.every(isMatchDone);
                             const semisFinished = semisMatches.length === 2 && semisMatches.every(isMatchDone);
 
-                            if (cuartosMatches.length === 0) {
-                                btnPlayoffs.style.display = 'inline-flex';
-                                if (btnLabel) btnLabel.textContent = '🏆 GENERAR CUARTOS DE FINAL';
-                                if (playoffsHint) playoffsHint.textContent = 'Cuando termine la fase regular, genera aquí los Cuartos de Final. De ahí en adelante, cada ronda avanza sola en cuanto se registran todos sus resultados.';
+                            if (playoffMatches.length === 0) {
+                                // Cuántos equipos jugaron de verdad la fase regular:
+                                // de ahí sale la ronda por la que empezará el cuadro.
+                                const activeTeams = new Set();
+                                regularMatches.filter(isMatchDone).forEach(m => {
+                                    activeTeams.add(m.homeTeamId);
+                                    activeTeams.add(m.awayTeamId);
+                                });
+                                const n = activeTeams.size;
+
+                                let roundLabel = null;
+                                let roundDetail = '';
+                                if (n >= 8) {
+                                    roundLabel = 'CUARTOS DE FINAL';
+                                    roundDetail = `Se cruzarán los 8 mejores de la tabla (hay ${n} equipos con partidos jugados).`;
+                                } else if (n >= 6) {
+                                    roundLabel = 'CUARTOS DE FINAL';
+                                    roundDetail = `Con ${n} equipos, los dos primeros de la tabla pasan directos a semifinales y el resto juega cuartos.`;
+                                } else if (n >= 4) {
+                                    roundLabel = 'SEMIFINALES';
+                                    roundDetail = `Con ${n} equipos el cuadro arranca en semifinales: 1º-4º y 2º-3º.`;
+                                } else if (n >= 2) {
+                                    roundLabel = 'LA GRAN FINAL';
+                                    roundDetail = `Con ${n} equipos se juega directamente la final entre los dos primeros.`;
+                                }
+
+                                btnPlayoffs.style.display = roundLabel ? 'inline-flex' : 'none';
+                                if (btnLabel && roundLabel) btnLabel.textContent = `🏆 GENERAR ${roundLabel}`;
+                                if (playoffsHint) {
+                                    playoffsHint.textContent = roundLabel
+                                        ? `${roundDetail} De ahí en adelante, cada ronda avanza sola en cuanto se registran todos sus resultados.`
+                                        : 'Para armar las eliminatorias hacen falta al menos 2 equipos con partidos jugados en la fase regular.';
+                                }
                             } else if (semisMatches.length === 0 && cuartosFinished) {
                                 // No debería pasar (el auto-avance ya lo hizo al guardar el
                                 // último resultado), pero queda como respaldo manual.
@@ -744,7 +789,11 @@ document.addEventListener('click', (e) => {
                                 if (btnLabel) btnLabel.textContent = '🏆 AVANZAR A FINAL';
                             } else {
                                 btnPlayoffs.style.display = 'none';
-                                if (playoffsHint && cuartosMatches.length > 0) {
+                                // Con un cuadro que arranca en Semifinal no hay cuartos,
+                                // así que la condición mira los playoffs en conjunto: si
+                                // no, se quedaba el texto inicial de "genera los cuartos"
+                                // con las semifinales ya en marcha.
+                                if (playoffsHint && playoffMatches.length > 0) {
                                     playoffsHint.textContent = finalMatches.length > 0
                                         ? 'La Gran Final ya está en marcha.'
                                         : 'La siguiente ronda se generará sola en cuanto termine la actual. No necesitas hacer nada más aquí.';
