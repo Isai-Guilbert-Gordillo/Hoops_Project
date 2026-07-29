@@ -542,6 +542,78 @@
             flex-shrink: 0;
         }
 
+        /* ============================================================
+           Campeón. Es el único momento de celebración de la temporada,
+           así que se permite el oro (--gold, reservado en el resto de la
+           app para logro) frente al cian que marca "ganador de partido".
+           Aparece una sola vez y solo cuando la Gran Final ya terminó.
+           ============================================================ */
+        .champion-banner {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.6rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.6rem 1.2rem;
+            border: 1px solid var(--gold);
+            border-radius: var(--radius);
+            background: linear-gradient(160deg, rgba(255, 215, 0, 0.10), rgba(255, 215, 0, 0.02));
+            box-shadow: 0 0 28px rgba(255, 215, 0, 0.15);
+        }
+
+        .champion-banner__label {
+            font-family: var(--font-arcade);
+            font-size: 0.62rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--gold);
+        }
+
+        .champion-banner__team {
+            display: flex;
+            align-items: center;
+            gap: 0.7rem;
+        }
+
+        .champion-banner__logo {
+            width: 42px;
+            height: 42px;
+            flex-shrink: 0;
+            border-radius: 50%;
+            border: 1px solid var(--gold);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: var(--font-arcade);
+            font-size: 0.7rem;
+            color: var(--gold);
+            overflow: hidden;
+        }
+        .champion-banner__logo img { width: 100%; height: 100%; object-fit: cover; }
+
+        .champion-banner__name {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: var(--text-main);
+        }
+
+        .champion-banner__detail {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin: 0;
+        }
+
+        @keyframes champion-rise {
+            from { opacity: 0; transform: translateY(8px); }
+            to   { opacity: 1; transform: none; }
+        }
+        .champion-banner { animation: champion-rise 0.5s ease both; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .champion-banner { animation: none; }
+        }
+
         .bracket-match-actions { padding: 0.6rem 0.75rem; }
         .bracket-btn-start {
             width: 100%;

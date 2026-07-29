@@ -302,12 +302,26 @@ app.get('/api/tournaments', optionalAuthenticateToken, async (req, res) => {
                 },
                 // Cuántas franquicias hay ya inscritas: el modal de edición lo usa
                 // para avisar de que los cupos no pueden bajar de ese número.
-                _count: { select: { enrollments: true } }
+                _count: { select: { enrollments: true } },
+                // Lo mínimo para saber en qué punto está la temporada.
+                matches: { select: { status: true, stage: true } }
             },
             orderBy: {
                 createdAt: 'desc'
             }
         });
+
+        // El estado sale de lo que ha pasado de verdad, no de un cronómetro. Antes
+        // el frontend lo deducía dando por "en curso" los 30 días siguientes al
+        // inicio y "finalizada" a partir del día 31: una temporada de tres meses
+        // aparecía como terminada mientras se seguía jugando, y una ya cerrada
+        // seguía "en curso" si había acabado antes de tiempo.
+        const now = Date.now();
+        const resolveStatus = (t) => {
+            if (t.matches.some(m => m.stage === 'FINAL' && m.status === 'FINISHED')) return 'ended';
+            if (t.matches.some(m => m.status === 'FINISHED')) return 'live';
+            return new Date(t.startDate).getTime() <= now ? 'live' : 'open';
+        };
 
         const result = tournaments.map(t => ({
             id: t.id,
@@ -317,6 +331,7 @@ app.get('/api/tournaments', optionalAuthenticateToken, async (req, res) => {
             maxTeams: t.maxTeams,
             enrolledTeams: t._count.enrollments,
             startDate: t.startDate,
+            status: resolveStatus(t),
             organizerId: t.organizerId,
             organizer: t.organizer,
             createdAt: t.createdAt
@@ -1737,68 +1752,10 @@ app.get('/api/tournaments/:id/standings', async (req, res) => {
 
         if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
 
-        // Obtener equipos inscritos
-        const enrollments = await prisma.tournamentEnrollment.findMany({
-            where: { tournamentId },
-            include: { team: true }
-        });
-
-        const teams = enrollments.map(e => e.team);
-
-        // Obtener partidos FINISHED
-        const matches = await prisma.match.findMany({
-            where: { 
-                tournamentId, 
-                status: 'FINISHED' 
-            }
-        });
-
-        // Inicializar standings
-        const standings = teams.map(team => ({
-            teamId: team.id,
-            teamName: team.name,
-            logoUrl: team.logoUrl,
-            pj: 0,
-            g: 0,
-            p: 0,
-            pf: 0,
-            pc: 0,
-            diff: 0
-        }));
-
-        // Calcular estadísticas
-        matches.forEach(match => {
-            const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
-            const awayTeam = standings.find(s => s.teamId === match.awayTeamId);
-
-            if (homeTeam && awayTeam) {
-                homeTeam.pj += 1;
-                homeTeam.pf += match.homeScore;
-                homeTeam.pc += match.awayScore;
-                
-                awayTeam.pj += 1;
-                awayTeam.pf += match.awayScore;
-                awayTeam.pc += match.homeScore;
-
-                if (match.homeScore > match.awayScore) {
-                    homeTeam.g += 1;
-                    awayTeam.p += 1;
-                } else if (match.awayScore > match.homeScore) {
-                    awayTeam.g += 1;
-                    homeTeam.p += 1;
-                }
-            }
-        });
-
-        // Calcular diferencia y ordenar
-        standings.forEach(s => {
-            s.diff = s.pf - s.pc;
-        });
-
-        standings.sort((a, b) => {
-            if (b.g !== a.g) return b.g - a.g;
-            return b.diff - a.diff;
-        });
+        // Antes esto se calculaba aquí con TODOS los partidos terminados, así que
+        // los resultados de cuartos, semis y final se sumaban a la fase regular y
+        // la tabla general acababa diciendo algo distinto del cuadro de playoffs.
+        const standings = await computeRegularStandings(tournamentId);
 
         res.status(200).json(standings);
     } catch (error) {
@@ -1878,10 +1835,16 @@ app.get('/api/tournaments/:id/leaders', async (req, res) => {
     }
 });
 
-// Tabla de la FASE REGULAR, ordenada, para sembrar los playoffs. Solo cuenta
-// partidos con stage REGULAR: si se colaran los de eliminatoria, el sembrado
-// cambiaría a mitad de la propia eliminatoria.
-async function getRegularSeasonSeeding(tournamentId) {
+// Tabla de la FASE REGULAR, ordenada. Es la ÚNICA fuente: la usan tanto la tabla
+// pública del torneo como el sembrado de los playoffs, para que no puedan
+// contradecirse (antes la tabla sumaba también los partidos de eliminatoria y
+// acababa mostrando un orden distinto al que había sembrado el cuadro).
+//
+// Orden: porcentaje de victorias, luego diferencia de puntos, luego puntos a
+// favor. Se usa el porcentaje y no las victorias a secas porque en una liga
+// amateur los equipos no llegan con los mismos partidos jugados —un aplazamiento
+// basta— y un 2-2 no debe quedar por debajo de un 2-4.
+async function computeRegularStandings(tournamentId) {
     const enrollments = await prisma.tournamentEnrollment.findMany({
         where: { tournamentId },
         include: { team: true }
@@ -1891,7 +1854,12 @@ async function getRegularSeasonSeeding(tournamentId) {
         where: { tournamentId, status: 'FINISHED', stage: 'REGULAR' }
     });
 
-    const standings = enrollments.map(e => ({ teamId: e.team.id, pj: 0, g: 0, p: 0, pf: 0, pc: 0, diff: 0 }));
+    const standings = enrollments.map(e => ({
+        teamId: e.team.id,
+        teamName: e.team.name,
+        logoUrl: e.team.logoUrl,
+        pj: 0, g: 0, p: 0, pf: 0, pc: 0, diff: 0, pct: 0
+    }));
 
     matches.forEach(match => {
         const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
@@ -1905,13 +1873,23 @@ async function getRegularSeasonSeeding(tournamentId) {
         }
     });
 
-    standings.forEach(s => { s.diff = s.pf - s.pc; });
-    standings.sort((a, b) => {
-        if (b.g !== a.g) return b.g - a.g;
-        return b.diff - a.diff;
+    standings.forEach(s => {
+        s.diff = s.pf - s.pc;
+        s.pct = s.pj > 0 ? s.g / s.pj : 0;
     });
 
-    // Solo entran al cuadro los que de verdad jugaron la fase regular.
+    standings.sort((a, b) => {
+        if (b.pct !== a.pct) return b.pct - a.pct;
+        if (b.diff !== a.diff) return b.diff - a.diff;
+        return b.pf - a.pf;
+    });
+
+    return standings;
+}
+
+// Sembrado de playoffs: la misma tabla, pero solo con quienes de verdad jugaron.
+async function getRegularSeasonSeeding(tournamentId) {
+    const standings = await computeRegularStandings(tournamentId);
     return standings.filter(s => s.pj > 0);
 }
 

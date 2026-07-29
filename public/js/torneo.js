@@ -407,6 +407,14 @@ document.addEventListener('click', (e) => {
                 }
 
                 // --------- INICIO: Tabla de Posiciones ---------
+                // Porcentaje de victorias al estilo de la tabla de básquet: .750,
+                // sin el cero de la izquierda. Es el criterio con el que ordena el
+                // servidor, así que tiene que verse para que el orden se entienda.
+                const formatPct = (pct) => {
+                    if (typeof pct !== 'number') return '—';
+                    if (pct >= 1) return '1.000';
+                    return pct.toFixed(3).slice(1);
+                };
                 try {
                     const stResponse = await fetch(`/api/tournaments/${tournamentId}/standings`);
                     if (stResponse.ok) {
@@ -434,6 +442,7 @@ document.addEventListener('click', (e) => {
                                     <td>${s.pj}</td>
                                     <td>${s.g}</td>
                                     <td>${s.p}</td>
+                                    <td>${formatPct(s.pct)}</td>
                                     <td>${s.pf}</td>
                                     <td>${s.pc}</td>
                                     <td>${s.diff}</td>
@@ -726,6 +735,28 @@ document.addEventListener('click', (e) => {
                             renderPlaceholder('col-final', 'Esperando resultados de Semifinal');
                         }
 
+                        // Campeón: la Gran Final terminada cierra la temporada.
+                        const decidedFinal = finalMatches.find(isMatchDone);
+                        if (decidedFinal) {
+                            const homeWon = decidedFinal.homeScore > decidedFinal.awayScore;
+                            const champion = homeWon ? decidedFinal.homeTeam : decidedFinal.awayTeam;
+                            const runnerUp = homeWon ? decidedFinal.awayTeam : decidedFinal.homeTeam;
+                            const winnerScore = Math.max(decidedFinal.homeScore, decidedFinal.awayScore);
+                            const loserScore = Math.min(decidedFinal.homeScore, decidedFinal.awayScore);
+
+                            const banner = document.getElementById('champion-banner');
+                            const logoBox = document.getElementById('champion-logo');
+                            if (banner && logoBox) {
+                                logoBox.innerHTML = champion.logoUrl && champion.logoUrl.trim() !== ''
+                                    ? `<img src="${escapeHtml(champion.logoUrl)}" alt="Logo ${escapeHtml(champion.name)}" data-fallback="placeholder" data-fallback-text="${escapeHtml(champion.name.charAt(0).toUpperCase())}">`
+                                    : escapeHtml(champion.name.charAt(0).toUpperCase());
+                                document.getElementById('champion-name').textContent = champion.name;
+                                document.getElementById('champion-detail').textContent =
+                                    `Ganó la Gran Final ${winnerScore}-${loserScore} a ${runnerUp.name}.`;
+                                banner.style.display = 'flex';
+                            }
+                        }
+
                         // Contadores en el título de cada columna
                         const setCount = (id, n) => { const el = document.getElementById(id); if (el) el.textContent = n > 0 ? ` (${n})` : ''; };
                         setCount('count-cuartos', cuartosMatches.length);
@@ -794,9 +825,13 @@ document.addEventListener('click', (e) => {
                                 // no, se quedaba el texto inicial de "genera los cuartos"
                                 // con las semifinales ya en marcha.
                                 if (playoffsHint && playoffMatches.length > 0) {
-                                    playoffsHint.textContent = finalMatches.length > 0
-                                        ? 'La Gran Final ya está en marcha.'
-                                        : 'La siguiente ronda se generará sola en cuanto termine la actual. No necesitas hacer nada más aquí.';
+                                    if (finalMatches.some(isMatchDone)) {
+                                        playoffsHint.textContent = 'Temporada cerrada: ya hay campeón.';
+                                    } else if (finalMatches.length > 0) {
+                                        playoffsHint.textContent = 'La Gran Final ya está en marcha.';
+                                    } else {
+                                        playoffsHint.textContent = 'La siguiente ronda se generará sola en cuanto termine la actual. No necesitas hacer nada más aquí.';
+                                    }
                                 }
                             }
                         }

@@ -193,6 +193,7 @@
                                     <th>PJ</th>
                                     <th>G</th>
                                     <th>P</th>
+                                    <th title="Porcentaje de victorias">PCT</th>
                                     <th>PF</th>
                                     <th>PC</th>
                                     <th>DIFF</th>
@@ -217,6 +218,17 @@
                         </button>
                     </div>
                     <h2 class="section-header reveal" style="display: none;" id="playoffs-header">Playoffs</h2>
+                    <!-- Cierre de la temporada: hasta ahora, ganar la Gran Final no
+                         producía ningún momento en la interfaz. Es lo que el
+                         organizador quiere enseñar cuando todo termina. -->
+                    <div class="champion-banner" id="champion-banner" style="display: none;">
+                        <span class="champion-banner__label">Campeón</span>
+                        <div class="champion-banner__team">
+                            <span class="champion-banner__logo" id="champion-logo"></span>
+                            <span class="champion-banner__name" id="champion-name"></span>
+                        </div>
+                        <p class="champion-banner__detail" id="champion-detail"></p>
+                    </div>
                     <div class="bracket-container reveal" id="bracket-container" style="display: none;">
                         <div class="bracket-column" id="col-cuartos">
                             <div class="bracket-column-title">Cuartos<span class="bracket-column-count" id="count-cuartos"></span></div>

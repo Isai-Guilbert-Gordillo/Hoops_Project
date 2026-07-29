@@ -46,13 +46,13 @@
                 sessionUser = null;
             }
 
+            // El estado lo calcula el servidor a partir de los partidos jugados
+            // (ver /api/tournaments). El respaldo por fecha solo actúa si la
+            // respuesta viniera sin el campo.
             function getTournamentStatus(torneo) {
+                if (torneo.status) return torneo.status;
                 if (!torneo.startDate) return 'open';
-                const start = new Date(torneo.startDate);
-                const now = new Date();
-                if (start.getTime() > now.getTime()) return 'open';
-                if (now.getTime() - start.getTime() < 30 * 24 * 60 * 60 * 1000) return 'live';
-                return 'ended';
+                return new Date(torneo.startDate).getTime() > Date.now() ? 'open' : 'live';
             }
 
             const STATUS_LABEL = {
