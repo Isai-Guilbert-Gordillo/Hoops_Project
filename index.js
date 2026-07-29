@@ -1014,6 +1014,109 @@ app.post('/api/tournaments/:id/matches', authenticateToken, async (req, res) => 
     }
 });
 
+// Emparejamientos de todos contra todos por el método del círculo: se fija el
+// primer equipo y los demás rotan. Con un número impar de equipos se añade un
+// hueco ("descansa") que se descarta al emparejar.
+// El local y el visitante se alternan por ronda para que ninguno acabe jugando
+// siempre en casa.
+function buildRoundRobin(teamIds) {
+    const ids = [...teamIds];
+    if (ids.length % 2 !== 0) ids.push(null); // descansa
+
+    const n = ids.length;
+    const rounds = [];
+
+    for (let r = 0; r < n - 1; r++) {
+        const pairs = [];
+        for (let i = 0; i < n / 2; i++) {
+            const a = ids[i];
+            const b = ids[n - 1 - i];
+            if (a === null || b === null) continue;
+            pairs.push(r % 2 === 0 ? [a, b] : [b, a]);
+        }
+        rounds.push(pairs);
+
+        // Rotación: el primero se queda quieto y el resto gira una posición.
+        ids.splice(1, 0, ids.pop());
+    }
+
+    return rounds;
+}
+
+// Generar el calendario completo de la fase regular de una sola vez. Crear 15
+// partidos a mano (una liga de 6) era lo más tedioso de montar una temporada.
+app.post('/api/tournaments/:id/schedule', authenticateToken, async (req, res) => {
+    try {
+        const { id: tournamentId } = req.params;
+        const { startDate, times, daysBetweenRounds } = req.body;
+
+        const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+        if (tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el organizador del torneo puede generar el calendario' });
+        }
+
+        // No se pisa un calendario existente: si ya hay partidos de fase regular,
+        // el organizador decide qué borrar antes de regenerar.
+        const existing = await prisma.match.count({ where: { tournamentId, stage: 'REGULAR' } });
+        if (existing > 0) {
+            return res.status(400).json({
+                error: `Este torneo ya tiene ${existing} partido(s) de fase regular. Bórralos antes de generar el calendario completo.`
+            });
+        }
+
+        const enrollments = await prisma.tournamentEnrollment.findMany({ where: { tournamentId } });
+        if (enrollments.length < 2) {
+            return res.status(400).json({ error: 'Hacen falta al menos 2 franquicias inscritas para generar el calendario.' });
+        }
+
+        // "2026-09-05" a secas lo interpreta Date como medianoche UTC, así que al
+        // ponerle luego la hora local la primera jornada se iba al día anterior.
+        // Se construye con los componentes sueltos para que sea ese día, sin más.
+        const dayOnly = String(startDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const firstDay = dayOnly
+            ? new Date(Number(dayOnly[1]), Number(dayOnly[2]) - 1, Number(dayOnly[3]))
+            : new Date(startDate || tournament.startDate);
+        if (isNaN(firstDay.getTime())) {
+            return res.status(400).json({ error: 'Indica una fecha de inicio válida para el calendario.' });
+        }
+
+        const slots = Array.isArray(times) && times.length > 0 ? times : ['18:00'];
+        const validSlot = /^([01]\d|2[0-3]):[0-5]\d$/;
+        if (!slots.every(t => validSlot.test(t))) {
+            return res.status(400).json({ error: 'Los horarios deben tener formato HH:mm (por ejemplo 18:00).' });
+        }
+
+        const gap = parseInt(daysBetweenRounds, 10);
+        const daysGap = Number.isInteger(gap) && gap > 0 ? gap : 7;
+
+        const rounds = buildRoundRobin(enrollments.map(e => e.teamId));
+
+        const data = [];
+        rounds.forEach((pairs, roundIndex) => {
+            pairs.forEach(([homeTeamId, awayTeamId], gameIndex) => {
+                const [hh, mm] = slots[gameIndex % slots.length].split(':').map(Number);
+                const day = new Date(firstDay);
+                day.setDate(day.getDate() + roundIndex * daysGap);
+                day.setHours(hh, mm, 0, 0);
+                data.push({ tournamentId, homeTeamId, awayTeamId, matchDate: day, stage: 'REGULAR' });
+            });
+        });
+
+        await prisma.match.createMany({ data });
+
+        res.status(201).json({
+            message: `Calendario generado: ${data.length} partidos en ${rounds.length} jornadas.`,
+            matches: data.length,
+            rounds: rounds.length
+        });
+    } catch (error) {
+        console.error('Error al generar el calendario:', error);
+        res.status(500).json({ error: 'Error al generar el calendario' });
+    }
+});
+
 // Obtener un partido específico
 app.get('/api/matches/:id', async (req, res) => {
     try {
@@ -1039,6 +1142,77 @@ app.get('/api/matches/:id', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al obtener el partido' });
+    }
+});
+
+// Reprogramar un partido (Protegido, solo el organizador del torneo o admin).
+// Antes no había forma de mover un partido: equivocarse de día obligaba a
+// borrarlo y volver a crearlo, y los partidos de playoffs quedaban clavados en
+// la fecha automática (hoy + 7 días) sin poder ajustarlos.
+app.patch('/api/matches/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { matchDate, homeTeamId, awayTeamId } = req.body;
+
+        const match = await prisma.match.findUnique({
+            where: { id },
+            include: { tournament: true }
+        });
+
+        if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+
+        if (match.tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el organizador del torneo puede reprogramar partidos' });
+        }
+
+        if (match.status === 'FINISHED') {
+            return res.status(400).json({ error: 'Este partido ya se jugó: no se puede reprogramar.' });
+        }
+
+        const data = {};
+
+        if (matchDate !== undefined) {
+            const parsed = new Date(matchDate);
+            if (isNaN(parsed.getTime())) {
+                return res.status(400).json({ error: 'Indica una fecha y hora válidas para el partido.' });
+            }
+            data.matchDate = parsed;
+        }
+
+        // Los cruces de playoffs los decide el cuadro, no la mano: aquí solo se
+        // permite cambiar de equipos en la fase regular.
+        if (homeTeamId !== undefined || awayTeamId !== undefined) {
+            if (match.stage !== 'REGULAR') {
+                return res.status(400).json({ error: 'En un partido de eliminatoria solo se puede cambiar la fecha, no los equipos.' });
+            }
+
+            const nextHome = homeTeamId || match.homeTeamId;
+            const nextAway = awayTeamId || match.awayTeamId;
+
+            if (nextHome === nextAway) {
+                return res.status(400).json({ error: 'Un equipo no puede jugar contra sí mismo.' });
+            }
+
+            const enrolled = await prisma.tournamentEnrollment.findMany({
+                where: { tournamentId: match.tournamentId, teamId: { in: [nextHome, nextAway] } }
+            });
+            if (enrolled.length < 2) {
+                return res.status(400).json({ error: 'Ambos equipos deben estar inscritos en este torneo.' });
+            }
+
+            data.homeTeamId = nextHome;
+            data.awayTeamId = nextAway;
+        }
+
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ error: 'No se indicó ningún cambio.' });
+        }
+
+        const updated = await prisma.match.update({ where: { id }, data });
+        res.json(updated);
+    } catch (error) {
+        console.error('Error al reprogramar partido:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 

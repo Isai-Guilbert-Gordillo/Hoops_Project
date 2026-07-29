@@ -80,6 +80,21 @@
                 </div>
 
                 <button type="button" id="btnAddPlayer" class="btn-add-player">+ Agregar</button>
+
+                <!-- Alta en lote: teclear 40 jugadores de uno en uno era lo más
+                     pesado de montar una liga. El plantel casi siempre llega ya
+                     escrito en una lista (WhatsApp, una hoja de cálculo), así que
+                     se acepta pegarla tal cual. -->
+                <details class="bulk-players">
+                    <summary class="bulk-players__summary">O pega la lista completa</summary>
+                    <p class="bulk-players__hint">
+                        Un jugador por línea, separando con comas: <strong>dorsal, nombre, posición</strong>.
+                        El orden da igual. Ejemplo:
+                    </p>
+                    <textarea id="bulkPlayers" class="bulk-players__input" rows="5" placeholder="7, Marco Rivas, Base&#10;10, Diego Salas, Escolta&#10;Ivan Mora, 23, Ala-Pívot"></textarea>
+                    <button type="button" id="btnBulkAdd" class="btn-add-player">+ Añadir lista</button>
+                    <div id="bulkPlayersReport" class="bulk-players__report" style="display: none;"></div>
+                </details>
             </div>
 
             <!-- Tabla de jugadores agregados -->

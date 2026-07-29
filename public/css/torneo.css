@@ -628,6 +628,25 @@
             cursor: pointer;
         }
 
+        /* Acción secundaria dentro de la llave: mover la fecha automática de la
+           ronda. Discreta, para no competir con "Iniciar (Mesa)". */
+        .bracket-btn-edit {
+            width: 100%;
+            margin-top: 0.4rem;
+            padding: 0.35rem 0.6rem;
+            font-size: 0.68rem;
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .bracket-btn-edit:hover {
+            border-color: var(--cyan-accent);
+            color: var(--cyan-accent);
+        }
+
         .bracket-stats-hint {
             text-align: center;
             font-size: 0.65rem;
@@ -830,6 +849,29 @@
         }
         .btn-match-delete svg { width: 18px; height: 18px; }
 
+        /* Reprogramar: misma caja que cancelar, pero en el cian de acción neutra
+           para que el rojo siga siendo exclusivo de lo destructivo. */
+        .btn-match-edit {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 38px;
+            height: 38px;
+            border-radius: 6px;
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--text-muted);
+            cursor: pointer;
+            flex-shrink: 0;
+            transition: all 0.15s;
+        }
+        .btn-match-edit:hover {
+            border-color: var(--cyan-accent);
+            color: var(--cyan-accent);
+            background: rgba(0, 240, 255, 0.12);
+        }
+        .btn-match-edit svg { width: 17px; height: 17px; }
+
         /* Organizer Form */
         .organizer-wrapper {
             display: none;
@@ -868,8 +910,53 @@
 
         .match-field { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
         .match-field label { margin: 0; }
-        .match-field select { width: 100%; }
+        .match-field select,
+        .match-field input[type="date"],
+        .match-field input[type="number"],
+        .match-field input[type="text"] { width: 100%; }
+        /* El calendario nativo hereda el esquema del sistema y en tema claro
+           salía blanco sobre el panel oscuro. */
+        .match-field input[type="date"] { color-scheme: dark; }
         .match-submit-field .btn-submit { margin-top: 0; }
+
+        /* Modo edición: el mismo formulario sirve para crear y para reprogramar,
+           así que hay que dejar clarísimo cuál de las dos cosas está pasando. */
+        .match-edit-note {
+            margin: -0.75rem 0 1.25rem;
+            font-size: 0.85rem;
+            color: var(--cyan-accent);
+        }
+
+        .match-edit-cancel {
+            margin-top: 0.5rem;
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 0.82rem;
+            text-decoration: underline;
+            cursor: pointer;
+        }
+        .match-edit-cancel:hover { color: var(--text-main); }
+
+        /* Generador de calendario: acción secundaria, separada del alta manual. */
+        .schedule-gen {
+            margin-top: 2rem;
+            padding-top: 1.75rem;
+            border-top: 1px solid var(--border-soft);
+            text-align: left;
+        }
+        .schedule-gen__title {
+            margin: 0 0 0.4rem;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.72rem;
+            color: var(--text-main);
+        }
+        .schedule-gen__hint {
+            margin: 0 0 1.25rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
 
         @media (max-width: 640px) {
             .match-form { grid-template-columns: 1fr; }

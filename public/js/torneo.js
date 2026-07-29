@@ -39,6 +39,11 @@ document.addEventListener('click', (e) => {
         window.openStatsModal(el.dataset.matchId);
     } else if (action === 'delete-match') {
         window.deleteMatch(el.dataset.matchId);
+    } else if (action === 'edit-match') {
+        // El botón vive dentro de tarjetas que ya tienen su propio click (abrir
+        // stats / iniciar mesa): sin esto, editar dispararía también esa acción.
+        e.stopPropagation();
+        if (window.startEditMatch) window.startEditMatch(el.dataset.matchId);
     }
 });
 
@@ -78,6 +83,10 @@ document.addEventListener('click', (e) => {
             let viewYear = now.getFullYear();
             let viewMonth = now.getMonth();
             let selectedDate = null; // Date a nivel de día
+            // Al agendar un partido nuevo no tiene sentido elegir un día pasado,
+            // pero al REPROGRAMAR uno sí: puede que la fecha equivocada que se
+            // quiere corregir ya haya quedado atrás.
+            let allowPast = false;
 
             // Poblar selects de hora (00–23) y minutos (cada 5)
             for (let h = 0; h < 24; h++) {
@@ -116,7 +125,7 @@ document.addEventListener('click', (e) => {
                     btn.className = 'dt-day';
                     btn.textContent = d;
                     const cellDate = new Date(viewYear, viewMonth, d);
-                    if (cellDate < today) btn.disabled = true; // no agendar en el pasado
+                    if (!allowPast && cellDate < today) btn.disabled = true; // no agendar en el pasado
                     if (cellDate.getTime() === today.getTime()) btn.classList.add('today');
                     if (selectedDate &&
                         selectedDate.getFullYear() === viewYear &&
@@ -202,6 +211,42 @@ document.addEventListener('click', (e) => {
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && !popover.hidden) closePopover();
             });
+
+            // API mínima para el modo edición, que necesita precargar la fecha del
+            // partido que se está moviendo y volver a dejarlo todo limpio al salir.
+            window.matchDatePicker = {
+                set(isoLocal) {
+                    const [datePart, timePart = '12:00'] = String(isoLocal).split('T');
+                    const [y, mo, da] = datePart.split('-').map(Number);
+                    const [hh, mm] = timePart.split(':');
+                    if (!y || !mo || !da) return;
+
+                    allowPast = true;
+                    selectedDate = new Date(y, mo - 1, da);
+                    viewYear = y;
+                    viewMonth = mo - 1;
+
+                    // El select de minutos va de 5 en 5; un partido guardado a una
+                    // hora "rara" perdería el valor en silencio si no se añade.
+                    if (![...minSel.options].some(o => o.value === mm)) {
+                        const extra = document.createElement('option');
+                        extra.value = mm; extra.textContent = mm;
+                        minSel.appendChild(extra);
+                    }
+                    hourSel.value = hh;
+                    minSel.value = mm;
+
+                    hiddenInput.value = `${y}-${pad(mo)}-${pad(da)}T${hh}:${mm}`;
+                    triggerText.textContent = new Date(y, mo - 1, da, Number(hh), Number(mm))
+                        .toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+                    triggerText.classList.remove('placeholder');
+                    renderCalendar();
+                },
+                reset() {
+                    allowPast = false;
+                    clearBtn.click();
+                }
+            };
         })();
 
 // ---- bloque inline #4 ----
@@ -514,13 +559,15 @@ document.addEventListener('click', (e) => {
                                 actionBtn = `<button class="btn-match-action primary" data-action="navigate" data-href="/mesa-control.html?matchId=${match.id}">▶ Iniciar partido</button>`;
                             }
 
-                            // Cancelar partido (bote de basura): solo el organizador y solo si aún no se jugó
+                            // Reprogramar y cancelar: solo el organizador y solo si aún no se jugó
+                            let editBtn = '';
                             if (isOrganizer && !isPlayed) {
+                                editBtn = `<button class="btn-match-edit" title="Reprogramar partido" aria-label="Reprogramar partido" data-action="edit-match" data-match-id="${match.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>`;
                                 deleteBtn = `<button class="btn-match-delete" title="Cancelar partido" aria-label="Cancelar partido" data-action="delete-match" data-match-id="${match.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
                             }
 
-                            const actionsRow = (actionBtn || deleteBtn)
-                                ? `<div class="match-actions">${actionBtn}${deleteBtn}</div>`
+                            const actionsRow = (actionBtn || editBtn || deleteBtn)
+                                ? `<div class="match-actions">${actionBtn}${editBtn}${deleteBtn}</div>`
                                 : '';
 
                             mCard.innerHTML = `
@@ -646,9 +693,12 @@ document.addEventListener('click', (e) => {
 
                             let scoreInputs = '';
                             if (match.status === 'SCHEDULED' && isOrganizer) {
+                                // Las rondas de playoffs se agendan solas a hoy + 7 días:
+                                // sin este botón, esa fecha era imposible de corregir.
                                 scoreInputs = `
                                     <div class="bracket-match-actions">
                                         <button class="bracket-btn-start">▶ Iniciar (Mesa)</button>
+                                        <button type="button" class="bracket-btn-edit" data-action="edit-match" data-match-id="${match.id}">Cambiar fecha</button>
                                     </div>
                                 `;
                             }
@@ -1023,18 +1073,27 @@ document.addEventListener('click', (e) => {
                                         return;
                                     }
 
+                                    // Reprogramando: solo se manda lo que cambia. En un
+                                    // partido de eliminatoria los equipos los decide el
+                                    // cuadro, así que ahí solo viaja la fecha.
+                                    const editing = window.matchEditState && window.matchEditState.matchId;
+                                    const url = editing
+                                        ? `/api/matches/${window.matchEditState.matchId}`
+                                        : `/api/tournaments/${tournamentId}/matches`;
+                                    const payload = editing
+                                        ? (window.matchEditState.stage === 'REGULAR'
+                                            ? { homeTeamId: hId, awayTeamId: aId, matchDate: dateVal }
+                                            : { matchDate: dateVal })
+                                        : { homeTeamId: hId, awayTeamId: aId, matchDate: dateVal };
+
                                     try {
-                                        const r = await fetch(`/api/tournaments/${tournamentId}/matches`, {
-                                            method: 'POST',
+                                        const r = await fetch(url, {
+                                            method: editing ? 'PATCH' : 'POST',
                                             headers: {
                                                 'Content-Type': 'application/json',
                                                 'Authorization': `Bearer ${token}`
                                             },
-                                            body: JSON.stringify({
-                                                homeTeamId: hId,
-                                                awayTeamId: aId,
-                                                matchDate: dateVal
-                                            })
+                                            body: JSON.stringify(payload)
                                         });
 
                                         const d = await r.json();
@@ -1044,8 +1103,8 @@ document.addEventListener('click', (e) => {
                                             mMsg.innerText = d.error || 'Error al programar.';
                                         } else {
                                             mMsg.style.color = '#00f0ff';
-                                            mMsg.innerText = 'Partido guardado.';
-                                            setTimeout(() => window.location.reload(), 2000);
+                                            mMsg.innerText = editing ? 'Partido reprogramado.' : 'Partido guardado.';
+                                            setTimeout(() => window.location.reload(), 1500);
                                         }
                                     } catch (err) {
                                         mMsg.style.display = 'block';
@@ -1053,6 +1112,133 @@ document.addEventListener('click', (e) => {
                                         mMsg.innerText = 'Error de red.';
                                     }
                                 });
+
+                                // ---- Reprogramar un partido ----
+                                // Reutiliza este mismo formulario en vez de duplicar el
+                                // selector de fecha en un modal aparte.
+                                window.matchEditState = { matchId: null, stage: null };
+                                // El generador solo tiene sentido con el calendario vacío.
+                                // Se mira tournament.matches y no regularMatches porque esa
+                                // variable vive dentro del bloque "si hay partidos", que
+                                // justo con el calendario vacío no llega a ejecutarse.
+                                const hasRegularMatches = (tournament.matches || []).some(m => m.stage === 'REGULAR');
+
+                                const formTitle = document.getElementById('match-form-title');
+                                const editNote = document.getElementById('match-edit-note');
+                                const submitBtn = document.getElementById('match-submit-btn');
+                                const cancelBtn = document.getElementById('match-edit-cancel');
+                                const scheduleGen = document.getElementById('schedule-gen');
+
+                                function exitEditMode() {
+                                    window.matchEditState = { matchId: null, stage: null };
+                                    formTitle.textContent = 'Programar Nuevo Partido';
+                                    editNote.style.display = 'none';
+                                    submitBtn.textContent = 'Guardar Partido';
+                                    cancelBtn.style.display = 'none';
+                                    homeSelect.disabled = false;
+                                    awaySelect.disabled = false;
+                                    homeSelect.value = '';
+                                    awaySelect.value = '';
+                                    document.getElementById('matchMessage').style.display = 'none';
+                                    if (window.matchDatePicker) window.matchDatePicker.reset();
+                                    if (scheduleGen && !hasRegularMatches) scheduleGen.style.display = '';
+                                }
+
+                                window.startEditMatch = (matchId) => {
+                                    const match = tournament.matches.find(m => m.id === matchId);
+                                    if (!match) return;
+
+                                    window.matchEditState = { matchId, stage: match.stage };
+
+                                    formTitle.textContent = 'Reprogramar Partido';
+                                    const isPlayoff = match.stage !== 'REGULAR';
+                                    const STAGE_NAME = { CUARTOS: 'Cuartos de final', SEMIFINAL: 'Semifinal', FINAL: 'Gran Final' };
+                                    editNote.textContent = isPlayoff
+                                        ? `${STAGE_NAME[match.stage] || match.stage}: ${match.homeTeam.name} vs ${match.awayTeam.name}. En eliminatorias solo puedes cambiar la fecha.`
+                                        : `${match.homeTeam.name} vs ${match.awayTeam.name}`;
+                                    editNote.style.display = 'block';
+                                    submitBtn.textContent = 'Guardar cambios';
+                                    cancelBtn.style.display = 'inline-block';
+
+                                    homeSelect.value = match.homeTeamId;
+                                    awaySelect.value = match.awayTeamId;
+                                    homeSelect.disabled = isPlayoff;
+                                    awaySelect.disabled = isPlayoff;
+
+                                    // El picker trabaja en hora local con el formato que ya
+                                    // usa el input oculto (YYYY-MM-DDTHH:mm).
+                                    const d = new Date(match.matchDate);
+                                    const p = n => String(n).padStart(2, '0');
+                                    if (window.matchDatePicker) {
+                                        window.matchDatePicker.set(
+                                            `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+                                        );
+                                    }
+
+                                    if (scheduleGen) scheduleGen.style.display = 'none';
+
+                                    // El formulario vive en la pestaña Calendario; un partido
+                                    // de playoffs se edita desde el cuadro, así que hay que
+                                    // llevar al organizador hasta allí.
+                                    const calTab = document.querySelector('.side-tab[data-tab="calendario"]');
+                                    if (calTab) calTab.click();
+                                    document.getElementById('organizer-section').scrollIntoView({ block: 'center', behavior: 'smooth' });
+                                };
+
+                                cancelBtn.addEventListener('click', exitEditMode);
+
+                                // ---- Generador de calendario (todos contra todos) ----
+                                const enrolledCount = (tournament.enrollments || []).length;
+                                if (scheduleGen && !hasRegularMatches && enrolledCount >= 2) {
+                                    const rounds = enrolledCount % 2 === 0 ? enrolledCount - 1 : enrolledCount;
+                                    const games = (enrolledCount * (enrolledCount - 1)) / 2;
+                                    document.getElementById('schedule-gen-hint').textContent =
+                                        `Con ${enrolledCount} franquicias son ${games} partidos en ${rounds} jornadas, todos contra todos una vez.`;
+
+                                    const startInput = document.getElementById('sched-start');
+                                    if (startInput && tournament.startDate) {
+                                        startInput.value = new Date(tournament.startDate).toISOString().slice(0, 10);
+                                    }
+                                    scheduleGen.style.display = '';
+
+                                    document.getElementById('btn-generate-schedule').addEventListener('click', async (ev) => {
+                                        const btn = ev.currentTarget;
+                                        const times = document.getElementById('sched-times').value
+                                            .split(',').map(t => t.trim()).filter(Boolean);
+
+                                        if (!(await showConfirm(`Se crearán ${games} partidos en ${rounds} jornadas. Podrás mover cualquiera después.`, { title: 'Generar calendario', confirmText: 'Generar', danger: false }))) {
+                                            return;
+                                        }
+
+                                        btn.disabled = true;
+                                        const old = btn.textContent;
+                                        btn.textContent = 'Generando…';
+                                        try {
+                                            const r = await fetch(`/api/tournaments/${tournamentId}/schedule`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                                body: JSON.stringify({
+                                                    startDate: document.getElementById('sched-start').value,
+                                                    daysBetweenRounds: document.getElementById('sched-gap').value,
+                                                    times
+                                                })
+                                            });
+                                            const d = await r.json();
+                                            if (!r.ok) {
+                                                showToast(d.error || 'No se pudo generar el calendario.', 'error');
+                                                btn.disabled = false;
+                                                btn.textContent = old;
+                                            } else {
+                                                showToast(d.message, 'success');
+                                                setTimeout(() => window.location.reload(), 1500);
+                                            }
+                                        } catch (err) {
+                                            showToast('Error de red.', 'error');
+                                            btn.disabled = false;
+                                            btn.textContent = old;
+                                        }
+                                    });
+                                }
 
                                 // Evento para avanzar de Fase en Playoffs
                                 const btnGeneratePlayoffs = document.getElementById('btn-generate-playoffs');
