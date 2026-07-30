@@ -1087,13 +1087,37 @@ document.addEventListener('click', (e) => {
                                     awaySelect.appendChild(aOpt);
                                 });
 
+                                // El picker de fecha/hora deja en el input oculto un texto
+                                // "ingenuo" tipo "2026-08-10T18:00", sin zona horaria. Antes
+                                // eso viajaba tal cual al servidor, que hace `new Date(...)`:
+                                // una cadena sin offset se interpreta en la hora LOCAL DE QUIEN
+                                // LA PARSEA. En tu máquina (donde el navegador y el servidor de
+                                // pruebas comparten huso) no se notaba, pero Render corre en
+                                // UTC — un organizador en México que agenda "18:00" terminaba
+                                // con el partido guardado a las 18:00 UTC, es decir, mostrado
+                                // como las 12:00 en su propio huso.
+                                //
+                                // El arreglo: convertir esos componentes locales a un instante
+                                // absoluto ANTES de mandarlos. `new Date(y, m, d, h, min)`
+                                // interpreta los números como hora local del NAVEGADOR (con su
+                                // propio huso y reglas de horario de verano), y `.toISOString()`
+                                // los serializa como ese mismo instante en UTC con sufijo "Z".
+                                // Un ISO con "Z" ya no es ambiguo: `new Date(...)` lo interpreta
+                                // igual sin importar en qué huso corra el servidor.
+                                function localNaiveToIsoInstant(naive) {
+                                    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(naive || '');
+                                    if (!m) return naive; // deja que la validación del backend lo rechace
+                                    const [, y, mo, d, hh, mi] = m.map(Number);
+                                    return new Date(y, mo - 1, d, hh, mi).toISOString();
+                                }
+
                                 // Manejo de la programación
                                 document.getElementById('matchForm').addEventListener('submit', async (e) => {
                                     e.preventDefault();
                                     const mMsg = document.getElementById('matchMessage');
                                     const hId = homeSelect.value;
                                     const aId = awaySelect.value;
-                                    const dateVal = document.getElementById('matchDate').value;
+                                    const dateVal = localNaiveToIsoInstant(document.getElementById('matchDate').value);
 
                                     if (hId === aId) {
                                         mMsg.style.display = 'block';
@@ -1258,7 +1282,10 @@ document.addEventListener('click', (e) => {
                                                 body: JSON.stringify({
                                                     startDate: document.getElementById('sched-start').value,
                                                     daysBetweenRounds: document.getElementById('sched-gap').value,
-                                                    times
+                                                    times,
+                                                    // El servidor no sabe en qué huso está el organizador (Render
+                                                    // corre en UTC); sin esto, "18:00" se guardaba como 18:00 UTC.
+                                                    tzOffsetMinutes: new Date().getTimezoneOffset()
                                                 })
                                             });
                                             const d = await r.json();
