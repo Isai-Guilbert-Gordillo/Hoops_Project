@@ -238,8 +238,17 @@
     body.ligas .modal-close-btn { color: var(--text-dim); background: transparent; border: none; font-size: 1.4rem; cursor: pointer; }
     body.ligas .modal-close-btn:hover { color: var(--text); }
     body.ligas .form-group label { font-family: var(--font-data); font-size: var(--fs-label); letter-spacing: 0.05em; color: var(--text-dim); }
-    body.ligas .form-group input { background: var(--ink-3); border: 1px solid var(--line); color: var(--text); font-family: var(--font-read); border-radius: var(--radius-sm); padding: 0.55rem 0.8rem; }
-    body.ligas .form-group input:focus { border-color: var(--board); outline: none; }
+    body.ligas .form-group input,
+    body.ligas .form-group select { background: var(--ink-3); border: 1px solid var(--line); color: var(--text); font-family: var(--font-read); border-radius: var(--radius-sm); padding: 0.55rem 0.8rem; }
+    body.ligas .form-group input:focus,
+    body.ligas .form-group select:focus { border-color: var(--board); outline: none; }
+    /* Sin esto el desplegable nativo abre su lista en blanco sobre el modal oscuro. */
+    body.ligas .form-group select { color-scheme: dark; }
+    /* El selector de fecha nativo hereda el esquema del sistema: sin esto, en
+       tema claro pinta un calendario blanco con el icono casi invisible sobre
+       el fondo oscuro del modal. */
+    body.ligas .form-group input[type="date"] { color-scheme: dark; }
+    body.ligas .form-hint { display: block; margin-top: 0.35rem; font-family: var(--font-data); font-size: var(--fs-label); color: var(--text-dim); }
     body.ligas .btn-submit { background: var(--ball); color: var(--ink); font-family: var(--font-data); font-weight: 700; border: none; border-radius: var(--radius-sm); padding: 0.7rem 1.2rem; cursor: pointer; }
     body.ligas .btn-submit:hover { opacity: 0.9; }
 

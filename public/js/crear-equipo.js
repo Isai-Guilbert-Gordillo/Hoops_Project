@@ -170,12 +170,20 @@
             // ========== AGREGAR JUGADOR A LA LISTA (local) ==========
             btnAddPlayer.addEventListener('click', () => {
                 const playerName = toTitleCase(document.getElementById('playerName').value.trim());
-                const playerNumber = parseInt(document.getElementById('playerNumber').value);
+                const playerNumber = parseInt(document.getElementById('playerNumber').value, 10);
                 const playerPosition = document.getElementById('playerPosition').value;
 
-                // Validación
-                if (!playerName || !playerNumber || !playerPosition) {
+                // Validación. El dorsal se comprueba aparte del resto: con un
+                // "!playerNumber" el número 0 —que es un dorsal válido y que el
+                // propio input admite con min="0"— se trataba como campo vacío y
+                // se rechazaba con el mensaje engañoso de "completa los campos".
+                if (!playerName || !playerPosition) {
                     showToast('Completa todos los campos del jugador', 'error');
+                    return;
+                }
+
+                if (!Number.isInteger(playerNumber) || playerNumber < 0 || playerNumber > 99) {
+                    showToast('El dorsal debe ser un número entre 0 y 99', 'error');
                     return;
                 }
 
@@ -209,6 +217,92 @@
                 // Actualizar tabla
                 renderPlayersTable();
                 showToast('Jugador agregado a la lista', 'success');
+            });
+
+            // ========== ALTA EN LOTE (pegar la lista del plantel) ==========
+            // Las listas llegan escritas de cualquier manera ("7, Marco Rivas, Base",
+            // "Marco Rivas; 7; base", con tabulaciones si vienen de una hoja), así
+            // que no se exige un orden de columnas: de cada línea se toma el número
+            // como dorsal, lo que reconozcamos como posición, y el resto es el
+            // nombre. Es más tolerante que pedir un formato exacto que nadie lee.
+            const POSITION_ALIASES = {
+                'base': 'Base', 'pg': 'Base', 'armador': 'Base',
+                'escolta': 'Escolta', 'sg': 'Escolta',
+                'alero': 'Alero', 'sf': 'Alero',
+                'ala-pivot': 'Ala-Pívot', 'ala pivot': 'Ala-Pívot', 'alapivot': 'Ala-Pívot', 'pf': 'Ala-Pívot',
+                'pivot': 'Pívot', 'c': 'Pívot', 'centro': 'Pívot'
+            };
+
+            const normalize = (s) => s.toLowerCase()
+                .normalize('NFD').replace(/[̀-ͯ]/g, '')  // quita acentos
+                .trim();
+
+            function parseBulkLine(line) {
+                const parts = line.split(/[,;\t]|\s+-\s+/).map(p => p.trim()).filter(Boolean);
+                if (parts.length === 0) return null;
+
+                let jerseyNumber = null;
+                let position = null;
+                const nameParts = [];
+
+                parts.forEach(part => {
+                    const asNumber = /^\d{1,2}$/.test(part) ? parseInt(part, 10) : null;
+                    const asPosition = POSITION_ALIASES[normalize(part)];
+
+                    if (jerseyNumber === null && asNumber !== null) jerseyNumber = asNumber;
+                    else if (!position && asPosition) position = asPosition;
+                    else nameParts.push(part);
+                });
+
+                const name = toTitleCase(nameParts.join(' ').trim());
+
+                if (!name) return { error: 'falta el nombre' };
+                if (jerseyNumber === null) return { error: 'falta el dorsal' };
+                if (!position) return { error: 'falta la posición' };
+
+                return { name, jerseyNumber, position };
+            }
+
+            document.getElementById('btnBulkAdd').addEventListener('click', () => {
+                const textarea = document.getElementById('bulkPlayers');
+                const report = document.getElementById('bulkPlayersReport');
+                const lines = textarea.value.split('\n').map(l => l.trim()).filter(Boolean);
+
+                if (lines.length === 0) {
+                    showToast('Pega primero la lista de jugadores', 'error');
+                    return;
+                }
+
+                let added = 0;
+                const problems = [];
+
+                lines.forEach((line, i) => {
+                    const parsed = parseBulkLine(line);
+                    if (!parsed || parsed.error) {
+                        problems.push(`Línea ${i + 1} (“${line}”): ${parsed ? parsed.error : 'no se entendió'}`);
+                        return;
+                    }
+                    if (playersToAdd.some(p => p.jerseyNumber === parsed.jerseyNumber)) {
+                        problems.push(`Línea ${i + 1} (“${line}”): el dorsal ${parsed.jerseyNumber} ya está en la lista`);
+                        return;
+                    }
+                    playersToAdd.push({ ...parsed, photoFile: null, photoPreviewUrl: null });
+                    added++;
+                });
+
+                renderPlayersTable();
+
+                report.style.display = 'block';
+                report.innerHTML = `<strong>${added} jugador(es) añadidos.</strong>` +
+                    (problems.length
+                        ? `<br><span class="is-problem">${problems.length} línea(s) sin añadir:</span><br>${problems.map(escapeHtml).join('<br>')}`
+                        : '');
+
+                // Solo se vacía si entró todo: si algo falló, el organizador
+                // necesita el texto delante para corregirlo.
+                if (problems.length === 0) textarea.value = '';
+
+                if (added > 0) showToast(`${added} jugador(es) añadidos a la lista`, 'success');
             });
 
             // ========== RENDERIZAR TABLA DE JUGADORES ==========

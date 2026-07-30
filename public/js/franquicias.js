@@ -174,13 +174,14 @@
         }
 
         // ¿La liga/torneo está activa? (inscripciones abiertas o en curso).
-        // TODO: ajústalo a tu regla real de "activa" si tienes un campo de estado.
+        // El estado lo calcula el servidor a partir de los partidos jugados: una
+        // liga es activa mientras no haya terminado su Gran Final. Solo lo trae el
+        // listado /api/tournaments, así que los torneos que llegan incrustados en
+        // las inscripciones de un equipo se resuelven por id contra ese listado.
         function isTournamentActive(t) {
-            if (!t || !t.startDate) return true;               // sin fecha ⇒ inscripciones
-            const start = new Date(t.startDate).getTime();
-            const now = Date.now();
-            if (start > now) return true;                      // programada / abierta
-            return (now - start) < 30 * 24 * 60 * 60 * 1000;   // "en curso" durante 30 días
+            if (!t) return false;
+            const known = t.status ? t : allTournaments.find(x => x.id === t.id);
+            return known && known.status ? known.status !== 'ended' : true;
         }
 
         /* ─────────── CAPA 1: stats agregadas (todas de datos reales) ─────────── */

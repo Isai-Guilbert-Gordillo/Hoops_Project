@@ -149,6 +149,23 @@
             box-shadow: none;
         }
 
+        /* Estado del guardado continuo. Es información de fondo: solo debe llamar
+           la atención cuando algo NO se está guardando, así que en reposo va en el
+           gris apagado del resto de metadatos y solo el fallo usa el rojo de alerta. */
+        .sync-status {
+            margin-top: 0.5rem;
+            font-size: 0.68rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: var(--text-muted);
+            min-height: 1em;
+        }
+
+        .sync-status.is-error {
+            color: #ff5555;
+            font-weight: 700;
+        }
+
         .team-fouls {
             font-size: 0.78rem;
             color: #ff5555;

@@ -276,6 +276,46 @@ const torneos = [
     }
 ];
 
+// ==========================================================================
+// ENDPOINTS DEL MINIJUEGO (TOP 3 RÉCORDS ARCADE)
+// ==========================================================================
+app.get('/api/arcade-scores', async (req, res) => {
+    try {
+        const topScores = await prisma.arcadeScore.findMany({
+            orderBy: { score: 'desc' },
+            take: 3
+        });
+        res.json(topScores);
+    } catch (error) {
+        console.error('Error obteniendo récords arcade:', error);
+        res.status(500).json({ error: 'Error interno obteniendo los récords' });
+    }
+});
+
+app.post('/api/arcade-scores', optionalAuthenticateToken, async (req, res) => {
+    try {
+        const { initials, score } = req.body;
+        
+        if (!initials || score === undefined) {
+            return res.status(400).json({ error: 'Faltan datos del récord' });
+        }
+
+        const newScore = await prisma.arcadeScore.create({
+            data: {
+                initials: String(initials).substring(0, 7).toUpperCase(),
+                score: parseInt(score, 10),
+                // Si el jugador ya inició sesión, relacionamos su récord
+                userId: req.user ? req.user.id : null 
+            }
+        });
+        
+        res.status(201).json(newScore);
+    } catch (error) {
+        console.error('Error guardando récord arcade:', error);
+        res.status(500).json({ error: 'Error interno guardando el récord' });
+    }
+});
+
 // Ruta para obtener todos los torneos (legado en memoria)
 app.get('/api/torneos', (req, res) => {
     res.json(torneos);
@@ -299,12 +339,29 @@ app.get('/api/tournaments', optionalAuthenticateToken, async (req, res) => {
             include: {
                 organizer: {
                     select: { id: true, firstName: true, lastName: true, email: true }
-                }
+                },
+                // Cuántas franquicias hay ya inscritas: el modal de edición lo usa
+                // para avisar de que los cupos no pueden bajar de ese número.
+                _count: { select: { enrollments: true } },
+                // Lo mínimo para saber en qué punto está la temporada.
+                matches: { select: { status: true, stage: true } }
             },
             orderBy: {
                 createdAt: 'desc'
             }
         });
+
+        // El estado sale de lo que ha pasado de verdad, no de un cronómetro. Antes
+        // el frontend lo deducía dando por "en curso" los 30 días siguientes al
+        // inicio y "finalizada" a partir del día 31: una temporada de tres meses
+        // aparecía como terminada mientras se seguía jugando, y una ya cerrada
+        // seguía "en curso" si había acabado antes de tiempo.
+        const now = Date.now();
+        const resolveStatus = (t) => {
+            if (t.matches.some(m => m.stage === 'FINAL' && m.status === 'FINISHED')) return 'ended';
+            if (t.matches.some(m => m.status === 'FINISHED')) return 'live';
+            return new Date(t.startDate).getTime() <= now ? 'live' : 'open';
+        };
 
         const result = tournaments.map(t => ({
             id: t.id,
@@ -312,7 +369,9 @@ app.get('/api/tournaments', optionalAuthenticateToken, async (req, res) => {
             category: t.category,
             venue: t.venue,
             maxTeams: t.maxTeams,
+            enrolledTeams: t._count.enrollments,
             startDate: t.startDate,
+            status: resolveStatus(t),
             organizerId: t.organizerId,
             organizer: t.organizer,
             createdAt: t.createdAt
@@ -361,6 +420,23 @@ app.put('/api/tournaments/:id', authenticateToken, async (req, res) => {
             const parsed = parseInt(maxTeams, 10);
             if (!Number.isInteger(parsed) || parsed < 2 || parsed > FREE_PLAN_LIMITS.MAX_TEAMS_PER_TOURNAMENT) {
                 return res.status(400).json({ error: `Los cupos deben estar entre 2 y ${FREE_PLAN_LIMITS.MAX_TEAMS_PER_TOURNAMENT}.` });
+            }
+
+            // Bajar los cupos por debajo de las franquicias ya inscritas dejaría
+            // el torneo en un estado imposible (más inscritos que plazas), así que
+            // se rechaza indicando el mínimo real.
+            const enrolledCount = await prisma.tournamentEnrollment.count({ where: { tournamentId: id } });
+            if (parsed < enrolledCount) {
+                return res.status(400).json({
+                    error: `Ya hay ${enrolledCount} franquicia(s) inscritas: los cupos no pueden bajar de ${enrolledCount}. Da de baja alguna antes de reducirlos.`
+                });
+            }
+        }
+
+        if (startDate !== undefined && startDate !== '') {
+            const parsedDate = new Date(startDate);
+            if (isNaN(parsedDate.getTime())) {
+                return res.status(400).json({ error: 'Indica una fecha de inicio válida para el torneo.' });
             }
         }
 
@@ -448,13 +524,29 @@ app.get('/api/tournaments/:id', optionalAuthenticateToken, async (req, res) => {
             return res.status(404).json({ error: 'Torneo no encontrado' });
         }
 
-        // 1. Forzamos ambos valores a String para evitar problemas de tipos ("1" vs 1)
+        // Forzamos ambos valores a String para evitar problemas de tipos ("1" vs 1)
         const isOrganizer = req.user ? String(req.user.id) === String(tournament.organizerId) : false;
 
-        // 2. Chivato en consola para ver exactamente qué está comparando el servidor
-        console.log("-> Chequeo de Seguridad | Mi ID:", req.user?.id, "| Dueño del Torneo:", tournament.organizerId, "| ¿Soy Organizador?:", isOrganizer);
+        // Los datos de pago (cuánto lleva pagado cada franquicia y cuánto debe) son
+        // información privada entre el organizador y ese capitán: no pueden viajar a
+        // cualquiera que abra el enlace público del torneo. Ve los importes:
+        //  - el organizador del torneo y los ADMIN, para toda la liga;
+        //  - cada capitán, solo los de su propia franquicia.
+        // Al resto se le quitan los campos del payload (no basta con ocultarlos en el
+        // front: la respuesta de la API es igual de pública).
+        const canSeeAllPayments = isOrganizer || (req.user ? await userIsAdmin(req.user.id) : false);
+        const enrollments = tournament.enrollments.map(enrollment => {
+            const isOwnTeam = req.user
+                ? String(enrollment.team.captainId) === String(req.user.id)
+                : false;
 
-        res.status(200).json({ ...tournament, isOrganizer });
+            if (canSeeAllPayments || isOwnTeam) return enrollment;
+
+            const { amountPaid, paymentStatus, paymentDate, ...visible } = enrollment;
+            return visible;
+        });
+
+        res.status(200).json({ ...tournament, enrollments, isOrganizer });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al obtener el torneo' });
@@ -750,6 +842,9 @@ app.get('/api/users/me/teams', authenticateToken, async (req, res) => {
     try {
         const teams = await prisma.team.findMany({
             where: { captainId: req.user.id },
+            // El nº de jugadores permite avisar en el desplegable de inscripción
+            // de qué franquicias aún no llegan al mínimo de 3.
+            include: { _count: { select: { players: true } } },
             orderBy: { createdAt: 'desc' }
         });
         res.status(200).json(teams);
@@ -805,13 +900,17 @@ app.post('/api/tournaments/:id/enroll', authenticateToken, async (req, res) => {
         const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
         if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado.' });
 
-        // Validación 1: puede inscribir el CAPITÁN del equipo, el ORGANIZADOR dueño
-        // del torneo, o un ADMIN. Así el organizador gestiona su propia liga sin
-        // depender de que cada capitán se auto-inscriba.
+        // Validación 1: solo el CAPITÁN de la franquicia (o un ADMIN) puede
+        // inscribirla. Antes también podía el organizador del torneo, y eso le
+        // permitía meter en su liga la franquicia de cualquier desconocido sin
+        // pedirle permiso. El organizador sigue armando su liga sin depender de
+        // nadie: crea sus propias franquicias (tiene cupo para 64) o reparte el
+        // enlace de invitación para que cada capitán se inscriba.
         const isCaptain = team.captainId === req.user.id;
-        const isOrganizer = tournament.organizerId === req.user.id;
-        if (!isCaptain && !isOrganizer && !(await userIsAdmin(req.user.id))) {
-            return res.status(403).json({ error: 'Solo el capitán del equipo o el organizador del torneo pueden inscribirlo.' });
+        if (!isCaptain && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({
+                error: 'Solo el capitán de esa franquicia puede inscribirla. Si la liga es tuya, comparte el enlace de invitación con su capitán.'
+            });
         }
 
         // Validación 2: Equipo tiene ≥3 jugadores
@@ -962,6 +1061,109 @@ app.post('/api/tournaments/:id/matches', authenticateToken, async (req, res) => 
     }
 });
 
+// Emparejamientos de todos contra todos por el método del círculo: se fija el
+// primer equipo y los demás rotan. Con un número impar de equipos se añade un
+// hueco ("descansa") que se descarta al emparejar.
+// El local y el visitante se alternan por ronda para que ninguno acabe jugando
+// siempre en casa.
+function buildRoundRobin(teamIds) {
+    const ids = [...teamIds];
+    if (ids.length % 2 !== 0) ids.push(null); // descansa
+
+    const n = ids.length;
+    const rounds = [];
+
+    for (let r = 0; r < n - 1; r++) {
+        const pairs = [];
+        for (let i = 0; i < n / 2; i++) {
+            const a = ids[i];
+            const b = ids[n - 1 - i];
+            if (a === null || b === null) continue;
+            pairs.push(r % 2 === 0 ? [a, b] : [b, a]);
+        }
+        rounds.push(pairs);
+
+        // Rotación: el primero se queda quieto y el resto gira una posición.
+        ids.splice(1, 0, ids.pop());
+    }
+
+    return rounds;
+}
+
+// Generar el calendario completo de la fase regular de una sola vez. Crear 15
+// partidos a mano (una liga de 6) era lo más tedioso de montar una temporada.
+app.post('/api/tournaments/:id/schedule', authenticateToken, async (req, res) => {
+    try {
+        const { id: tournamentId } = req.params;
+        const { startDate, times, daysBetweenRounds } = req.body;
+
+        const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
+        if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
+
+        if (tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el organizador del torneo puede generar el calendario' });
+        }
+
+        // No se pisa un calendario existente: si ya hay partidos de fase regular,
+        // el organizador decide qué borrar antes de regenerar.
+        const existing = await prisma.match.count({ where: { tournamentId, stage: 'REGULAR' } });
+        if (existing > 0) {
+            return res.status(400).json({
+                error: `Este torneo ya tiene ${existing} partido(s) de fase regular. Bórralos antes de generar el calendario completo.`
+            });
+        }
+
+        const enrollments = await prisma.tournamentEnrollment.findMany({ where: { tournamentId } });
+        if (enrollments.length < 2) {
+            return res.status(400).json({ error: 'Hacen falta al menos 2 franquicias inscritas para generar el calendario.' });
+        }
+
+        // "2026-09-05" a secas lo interpreta Date como medianoche UTC, así que al
+        // ponerle luego la hora local la primera jornada se iba al día anterior.
+        // Se construye con los componentes sueltos para que sea ese día, sin más.
+        const dayOnly = String(startDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        const firstDay = dayOnly
+            ? new Date(Number(dayOnly[1]), Number(dayOnly[2]) - 1, Number(dayOnly[3]))
+            : new Date(startDate || tournament.startDate);
+        if (isNaN(firstDay.getTime())) {
+            return res.status(400).json({ error: 'Indica una fecha de inicio válida para el calendario.' });
+        }
+
+        const slots = Array.isArray(times) && times.length > 0 ? times : ['18:00'];
+        const validSlot = /^([01]\d|2[0-3]):[0-5]\d$/;
+        if (!slots.every(t => validSlot.test(t))) {
+            return res.status(400).json({ error: 'Los horarios deben tener formato HH:mm (por ejemplo 18:00).' });
+        }
+
+        const gap = parseInt(daysBetweenRounds, 10);
+        const daysGap = Number.isInteger(gap) && gap > 0 ? gap : 7;
+
+        const rounds = buildRoundRobin(enrollments.map(e => e.teamId));
+
+        const data = [];
+        rounds.forEach((pairs, roundIndex) => {
+            pairs.forEach(([homeTeamId, awayTeamId], gameIndex) => {
+                const [hh, mm] = slots[gameIndex % slots.length].split(':').map(Number);
+                const day = new Date(firstDay);
+                day.setDate(day.getDate() + roundIndex * daysGap);
+                day.setHours(hh, mm, 0, 0);
+                data.push({ tournamentId, homeTeamId, awayTeamId, matchDate: day, stage: 'REGULAR' });
+            });
+        });
+
+        await prisma.match.createMany({ data });
+
+        res.status(201).json({
+            message: `Calendario generado: ${data.length} partidos en ${rounds.length} jornadas.`,
+            matches: data.length,
+            rounds: rounds.length
+        });
+    } catch (error) {
+        console.error('Error al generar el calendario:', error);
+        res.status(500).json({ error: 'Error al generar el calendario' });
+    }
+});
+
 // Obtener un partido específico
 app.get('/api/matches/:id', async (req, res) => {
     try {
@@ -971,7 +1173,11 @@ app.get('/api/matches/:id', async (req, res) => {
             include: {
                 homeTeam: { include: { players: true } },
                 awayTeam: { include: { players: true } },
-                tournament: true
+                tournament: true,
+                // Las stats ya cargadas viajan con el partido para que la mesa de
+                // control pueda reconstruir el marcador y el boxscore si se recarga
+                // la página a mitad del partido.
+                stats: true
             }
         });
 
@@ -983,6 +1189,77 @@ app.get('/api/matches/:id', async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al obtener el partido' });
+    }
+});
+
+// Reprogramar un partido (Protegido, solo el organizador del torneo o admin).
+// Antes no había forma de mover un partido: equivocarse de día obligaba a
+// borrarlo y volver a crearlo, y los partidos de playoffs quedaban clavados en
+// la fecha automática (hoy + 7 días) sin poder ajustarlos.
+app.patch('/api/matches/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { matchDate, homeTeamId, awayTeamId } = req.body;
+
+        const match = await prisma.match.findUnique({
+            where: { id },
+            include: { tournament: true }
+        });
+
+        if (!match) return res.status(404).json({ error: 'Partido no encontrado' });
+
+        if (match.tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el organizador del torneo puede reprogramar partidos' });
+        }
+
+        if (match.status === 'FINISHED') {
+            return res.status(400).json({ error: 'Este partido ya se jugó: no se puede reprogramar.' });
+        }
+
+        const data = {};
+
+        if (matchDate !== undefined) {
+            const parsed = new Date(matchDate);
+            if (isNaN(parsed.getTime())) {
+                return res.status(400).json({ error: 'Indica una fecha y hora válidas para el partido.' });
+            }
+            data.matchDate = parsed;
+        }
+
+        // Los cruces de playoffs los decide el cuadro, no la mano: aquí solo se
+        // permite cambiar de equipos en la fase regular.
+        if (homeTeamId !== undefined || awayTeamId !== undefined) {
+            if (match.stage !== 'REGULAR') {
+                return res.status(400).json({ error: 'En un partido de eliminatoria solo se puede cambiar la fecha, no los equipos.' });
+            }
+
+            const nextHome = homeTeamId || match.homeTeamId;
+            const nextAway = awayTeamId || match.awayTeamId;
+
+            if (nextHome === nextAway) {
+                return res.status(400).json({ error: 'Un equipo no puede jugar contra sí mismo.' });
+            }
+
+            const enrolled = await prisma.tournamentEnrollment.findMany({
+                where: { tournamentId: match.tournamentId, teamId: { in: [nextHome, nextAway] } }
+            });
+            if (enrolled.length < 2) {
+                return res.status(400).json({ error: 'Ambos equipos deben estar inscritos en este torneo.' });
+            }
+
+            data.homeTeamId = nextHome;
+            data.awayTeamId = nextAway;
+        }
+
+        if (Object.keys(data).length === 0) {
+            return res.status(400).json({ error: 'No se indicó ningún cambio.' });
+        }
+
+        const updated = await prisma.match.update({ where: { id }, data });
+        res.json(updated);
+    } catch (error) {
+        console.error('Error al reprogramar partido:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
@@ -1696,68 +1973,10 @@ app.get('/api/tournaments/:id/standings', async (req, res) => {
 
         if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
 
-        // Obtener equipos inscritos
-        const enrollments = await prisma.tournamentEnrollment.findMany({
-            where: { tournamentId },
-            include: { team: true }
-        });
-
-        const teams = enrollments.map(e => e.team);
-
-        // Obtener partidos FINISHED
-        const matches = await prisma.match.findMany({
-            where: { 
-                tournamentId, 
-                status: 'FINISHED' 
-            }
-        });
-
-        // Inicializar standings
-        const standings = teams.map(team => ({
-            teamId: team.id,
-            teamName: team.name,
-            logoUrl: team.logoUrl,
-            pj: 0,
-            g: 0,
-            p: 0,
-            pf: 0,
-            pc: 0,
-            diff: 0
-        }));
-
-        // Calcular estadísticas
-        matches.forEach(match => {
-            const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
-            const awayTeam = standings.find(s => s.teamId === match.awayTeamId);
-
-            if (homeTeam && awayTeam) {
-                homeTeam.pj += 1;
-                homeTeam.pf += match.homeScore;
-                homeTeam.pc += match.awayScore;
-                
-                awayTeam.pj += 1;
-                awayTeam.pf += match.awayScore;
-                awayTeam.pc += match.homeScore;
-
-                if (match.homeScore > match.awayScore) {
-                    homeTeam.g += 1;
-                    awayTeam.p += 1;
-                } else if (match.awayScore > match.homeScore) {
-                    awayTeam.g += 1;
-                    homeTeam.p += 1;
-                }
-            }
-        });
-
-        // Calcular diferencia y ordenar
-        standings.forEach(s => {
-            s.diff = s.pf - s.pc;
-        });
-
-        standings.sort((a, b) => {
-            if (b.g !== a.g) return b.g - a.g;
-            return b.diff - a.diff;
-        });
+        // Antes esto se calculaba aquí con TODOS los partidos terminados, así que
+        // los resultados de cuartos, semis y final se sumaban a la fase regular y
+        // la tabla general acababa diciendo algo distinto del cuadro de playoffs.
+        const standings = await computeRegularStandings(tournamentId);
 
         res.status(200).json(standings);
     } catch (error) {
@@ -1837,6 +2056,108 @@ app.get('/api/tournaments/:id/leaders', async (req, res) => {
     }
 });
 
+// Tabla de la FASE REGULAR, ordenada. Es la ÚNICA fuente: la usan tanto la tabla
+// pública del torneo como el sembrado de los playoffs, para que no puedan
+// contradecirse (antes la tabla sumaba también los partidos de eliminatoria y
+// acababa mostrando un orden distinto al que había sembrado el cuadro).
+//
+// Orden: porcentaje de victorias, luego diferencia de puntos, luego puntos a
+// favor. Se usa el porcentaje y no las victorias a secas porque en una liga
+// amateur los equipos no llegan con los mismos partidos jugados —un aplazamiento
+// basta— y un 2-2 no debe quedar por debajo de un 2-4.
+async function computeRegularStandings(tournamentId) {
+    const enrollments = await prisma.tournamentEnrollment.findMany({
+        where: { tournamentId },
+        include: { team: true }
+    });
+
+    const matches = await prisma.match.findMany({
+        where: { tournamentId, status: 'FINISHED', stage: 'REGULAR' }
+    });
+
+    const standings = enrollments.map(e => ({
+        teamId: e.team.id,
+        teamName: e.team.name,
+        logoUrl: e.team.logoUrl,
+        pj: 0, g: 0, p: 0, pf: 0, pc: 0, diff: 0, pct: 0
+    }));
+
+    matches.forEach(match => {
+        const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
+        const awayTeam = standings.find(s => s.teamId === match.awayTeamId);
+
+        if (homeTeam && awayTeam) {
+            homeTeam.pj += 1; homeTeam.pf += match.homeScore; homeTeam.pc += match.awayScore;
+            awayTeam.pj += 1; awayTeam.pf += match.awayScore; awayTeam.pc += match.homeScore;
+            if (match.homeScore > match.awayScore) { homeTeam.g += 1; awayTeam.p += 1; }
+            else if (match.awayScore > match.homeScore) { awayTeam.g += 1; homeTeam.p += 1; }
+        }
+    });
+
+    standings.forEach(s => {
+        s.diff = s.pf - s.pc;
+        s.pct = s.pj > 0 ? s.g / s.pj : 0;
+    });
+
+    standings.sort((a, b) => {
+        if (b.pct !== a.pct) return b.pct - a.pct;
+        if (b.diff !== a.diff) return b.diff - a.diff;
+        return b.pf - a.pf;
+    });
+
+    return standings;
+}
+
+// Sembrado de playoffs: la misma tabla, pero solo con quienes de verdad jugaron.
+async function getRegularSeasonSeeding(tournamentId) {
+    const standings = await computeRegularStandings(tournamentId);
+    return standings.filter(s => s.pj > 0);
+}
+
+// Elige la primera ronda según cuántos equipos hay. Antes solo existía el cuadro
+// de 8 y una liga de 4 o 6 equipos —lo normal en el básquet de barrio— se
+// quedaba sin eliminatorias, sin más salida que borrar la liga entera.
+//
+//   8 o más : Cuartos con los 8 mejores (1-8, 4-5, 2-7, 3-6)
+//   6 o 7   : Cuartos entre 3-6 y 4-5; los sembrados 1 y 2 pasan con bye
+//   4 o 5   : arranca en Semifinales (1-4, 2-3)
+//   2 o 3   : arranca directo en la Gran Final (1-2)
+function planFirstPlayoffRound(seeded) {
+    const n = seeded.length;
+    const id = i => seeded[i].teamId;
+
+    if (n >= 8) {
+        return {
+            stage: 'CUARTOS',
+            pairs: [[id(0), id(7)], [id(3), id(4)], [id(1), id(6)], [id(2), id(5)]]
+        };
+    }
+
+    if (n >= 6) {
+        // Orden importante: la semifinal empareja al sembrado 1 con el ganador
+        // del primer cruce y al 2 con el del segundo (el 1 se enfrenta al peor
+        // sembrado que sobreviva).
+        return {
+            stage: 'CUARTOS',
+            pairs: [[id(3), id(4)], [id(2), id(5)]],
+            byes: [id(0), id(1)]
+        };
+    }
+
+    if (n >= 4) {
+        return {
+            stage: 'SEMIFINAL',
+            pairs: [[id(0), id(3)], [id(1), id(2)]]
+        };
+    }
+
+    if (n >= 2) {
+        return { stage: 'FINAL', pairs: [[id(0), id(1)]] };
+    }
+
+    return null;
+}
+
 // Avanza automáticamente Cuartos->Semis o Semis->Final cuando la ronda
 // correspondiente ya terminó por completo. NO genera Cuartos desde la fase
 // regular (eso sigue siendo una decisión explícita del organizador, vía el
@@ -1857,20 +2178,36 @@ async function tryAutoAdvancePlayoffs(tournamentId) {
     if (finales.length > 0) return null;
 
     // Cuartos -> Semis
-    if (cuartos.length === 4 && semis.length === 0 && cuartos.every(m => m.status === 'FINISHED')) {
-        const win1 = cuartos[0].homeScore > cuartos[0].awayScore ? cuartos[0].homeTeamId : cuartos[0].awayTeamId;
-        const win2 = cuartos[1].homeScore > cuartos[1].awayScore ? cuartos[1].homeTeamId : cuartos[1].awayTeamId;
-        const win3 = cuartos[2].homeScore > cuartos[2].awayScore ? cuartos[2].homeTeamId : cuartos[2].awayTeamId;
-        const win4 = cuartos[3].homeScore > cuartos[3].awayScore ? cuartos[3].homeTeamId : cuartos[3].awayTeamId;
+    if (cuartos.length > 0 && semis.length === 0 && cuartos.every(m => m.status === 'FINISHED')) {
+        const winnerOf = m => (m.homeScore > m.awayScore ? m.homeTeamId : m.awayTeamId);
+        const winners = cuartos.map(winnerOf);
+        let semiPairs = null;
+
+        if (cuartos.length === 4) {
+            semiPairs = [[winners[0], winners[1]], [winners[2], winners[3]]];
+        } else if (cuartos.length === 2) {
+            // Cuadro de 6: los sembrados 1 y 2 entraron con bye y ahora se cruzan
+            // con los ganadores. Se identifican como los equipos de la fase regular
+            // que NO jugaron cuartos, en orden de tabla.
+            const seeded = await getRegularSeasonSeeding(tournamentId);
+            const playedQuarters = new Set(cuartos.flatMap(m => [m.homeTeamId, m.awayTeamId]));
+            const byes = seeded.filter(s => !playedQuarters.has(s.teamId)).slice(0, 2).map(s => s.teamId);
+
+            if (byes.length === 2) {
+                semiPairs = [[byes[0], winners[0]], [byes[1], winners[1]]];
+            }
+        }
+
+        if (!semiPairs) return null;
 
         const matchDate1 = new Date(); matchDate1.setDate(matchDate1.getDate() + 7);
         const matchDate2 = new Date(matchDate1); matchDate2.setHours(matchDate1.getHours() + 2);
 
         await prisma.match.create({
-            data: { tournamentId, homeTeamId: win1, awayTeamId: win2, matchDate: matchDate1, stage: 'SEMIFINAL' }
+            data: { tournamentId, homeTeamId: semiPairs[0][0], awayTeamId: semiPairs[0][1], matchDate: matchDate1, stage: 'SEMIFINAL' }
         });
         await prisma.match.create({
-            data: { tournamentId, homeTeamId: win3, awayTeamId: win4, matchDate: matchDate2, stage: 'SEMIFINAL' }
+            data: { tournamentId, homeTeamId: semiPairs[1][0], awayTeamId: semiPairs[1][1], matchDate: matchDate2, stage: 'SEMIFINAL' }
         });
         return 'SEMIFINAL';
     }
@@ -1924,7 +2261,7 @@ app.post('/api/tournaments/:id/playoffs', authenticateToken, async (req, res) =>
         // REGLAS 2 y 3 (Cuartos->Semis, Semis->Final): desde que el auto-avance
         // existe, esto normalmente ya ocurrió solo al guardar el último resultado
         // de la ronda. Este botón manual queda como respaldo/fallback.
-        if ((cuartos.length === 4 && semis.length === 0) || (semis.length === 2 && finales.length === 0)) {
+        if ((cuartos.length > 0 && semis.length === 0) || (semis.length === 2 && finales.length === 0)) {
             const currentStageMatches = semis.length === 2 ? semis : cuartos;
             const currentStageName = semis.length === 2 ? 'Semifinales' : 'Cuartos de Final';
             if (currentStageMatches.some(m => m.status !== 'FINISHED')) {
@@ -1938,61 +2275,38 @@ app.post('/api/tournaments/:id/playoffs', authenticateToken, async (req, res) =>
             return res.status(201).json({ message, stage: advancedStage });
         }
 
-        // REGLA 1: Generar Cuartos
-        if (cuartos.length === 0) {
-            // Obtener equipos inscritos
-            const enrollments = await prisma.tournamentEnrollment.findMany({
-                where: { tournamentId },
-                include: { team: true }
-            });
+        // REGLA 1: arrancar las eliminatorias. La ronda inicial depende de cuántos
+        // equipos jugaron la fase regular, no siempre son Cuartos.
+        if (playoffMatches.length === 0) {
+            const seeded = await getRegularSeasonSeeding(tournamentId);
+            const plan = planFirstPlayoffRound(seeded);
 
-            const teams = enrollments.map(e => e.team);
-
-            // Obtener partidos FINISHED en fase REGULAR para standings
-            const matches = await prisma.match.findMany({
-                where: { tournamentId, status: 'FINISHED', stage: 'REGULAR' }
-            });
-
-            // Inicializar standings
-            const standings = teams.map(team => ({ teamId: team.id, pj: 0, g: 0, p: 0, pf: 0, pc: 0, diff: 0 }));
-
-            // Calcular estadísticas
-            matches.forEach(match => {
-                const homeTeam = standings.find(s => s.teamId === match.homeTeamId);
-                const awayTeam = standings.find(s => s.teamId === match.awayTeamId);
-
-                if (homeTeam && awayTeam) {
-                    homeTeam.pj += 1; homeTeam.pf += match.homeScore; homeTeam.pc += match.awayScore;
-                    awayTeam.pj += 1; awayTeam.pf += match.awayScore; awayTeam.pc += match.homeScore;
-                    if (match.homeScore > match.awayScore) { homeTeam.g += 1; awayTeam.p += 1; } 
-                    else if (match.awayScore > match.homeScore) { awayTeam.g += 1; homeTeam.p += 1; }
-                }
-            });
-
-            // Calcular diferencia y ordenar
-            standings.forEach(s => { s.diff = s.pf - s.pc; });
-            standings.sort((a, b) => {
-                if (b.g !== a.g) return b.g - a.g;
-                return b.diff - a.diff;
-            });
-
-            const activeTeams = standings.filter(s => s.pj > 0);
-
-            if (activeTeams.length < 8) {
-                return res.status(400).json({ error: 'Se necesitan al menos 8 equipos con partidos jugados para generar los cuartos de final.' });
+            if (!plan) {
+                return res.status(400).json({
+                    error: `Se necesitan al menos 2 equipos con partidos jugados para armar las eliminatorias. Ahora mismo hay ${seeded.length}.`
+                });
             }
 
-            const top8 = activeTeams.slice(0, 8);
             const matchDate = new Date();
             matchDate.setDate(matchDate.getDate() + 7);
 
-            // Llave 1 (1ro vs 8vo), Llave 2 (4to vs 5to), Llave 3 (2do vs 7mo) y Llave 4 (3ro vs 6to)
-            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[0].teamId, awayTeamId: top8[7].teamId, matchDate, stage: 'CUARTOS' }});
-            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[3].teamId, awayTeamId: top8[4].teamId, matchDate, stage: 'CUARTOS' }});
-            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[1].teamId, awayTeamId: top8[6].teamId, matchDate, stage: 'CUARTOS' }});
-            await prisma.match.create({ data: { tournamentId, homeTeamId: top8[2].teamId, awayTeamId: top8[5].teamId, matchDate, stage: 'CUARTOS' }});
+            for (const [homeTeamId, awayTeamId] of plan.pairs) {
+                await prisma.match.create({
+                    data: { tournamentId, homeTeamId, awayTeamId, matchDate, stage: plan.stage }
+                });
+            }
 
-            return res.status(201).json({ message: 'Cuartos de final generados exitosamente', stage: 'CUARTOS' });
+            const STAGE_DONE = {
+                CUARTOS: 'Cuartos de final generados',
+                SEMIFINAL: 'Semifinales generadas',
+                FINAL: 'Gran Final generada'
+            };
+            const byeCount = plan.byes ? plan.byes.length : 0;
+            const message = byeCount > 0
+                ? `${STAGE_DONE[plan.stage]}. Los ${byeCount} primeros de la tabla pasan directos a semifinales.`
+                : `${STAGE_DONE[plan.stage]} exitosamente`;
+
+            return res.status(201).json({ message, stage: plan.stage, byes: byeCount });
         }
 
         return res.status(400).json({ error: 'Estado de playoffs inválido o fuera de flujo.' });
@@ -2110,9 +2424,36 @@ app.put('/api/enrollments/:id/payment', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: 'No autorizado para editar inscripciones de este torneo' });
         }
 
+        // Antes esto era `parseInt(amountPaid) || 0`: aceptaba cualquier cifra sin
+        // rechistar (se registraron $9999 de una cuota de $500) y un negativo se
+        // guardaba tal cual. La cuota es el tope: si hay que cobrar de más, se
+        // cambia la cuota del torneo, no se falsea el pago de una franquicia.
+        const fee = enrollment.tournament.inscriptionFee || 0;
+        const parsedAmount = parseInt(amountPaid, 10);
+
+        if (!Number.isInteger(parsedAmount) || parsedAmount < 0) {
+            return res.status(400).json({ error: 'El monto pagado debe ser un número igual o mayor que 0.' });
+        }
+        if (parsedAmount > fee) {
+            return res.status(400).json({
+                error: `La cuota de inscripción es $${fee}: no puedes registrar un pago mayor.`
+            });
+        }
+
+        // paymentStatus existía en el esquema pero nadie lo escribía nunca, así que
+        // todas las inscripciones se quedaban en PENDING para siempre aunque
+        // estuvieran pagadas. Ahora se deriva del monto, junto con la fecha de pago.
+        let paymentStatus = 'PENDING';
+        if (fee > 0 && parsedAmount >= fee) paymentStatus = 'PAID';
+        else if (parsedAmount > 0) paymentStatus = 'PARTIAL';
+
         const updated = await prisma.tournamentEnrollment.update({
             where: { id: enrollmentId },
-            data: { amountPaid: parseInt(amountPaid, 10) || 0 }
+            data: {
+                amountPaid: parsedAmount,
+                paymentStatus,
+                paymentDate: paymentStatus === 'PAID' ? (enrollment.paymentDate || new Date()) : null
+            }
         });
 
         res.status(200).json(updated);

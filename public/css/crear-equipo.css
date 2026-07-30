@@ -112,6 +112,53 @@
             border-color: rgba(255, 255, 255, 0.5);
             transform: translateY(-2px);
         }
+
+        /* Alta en lote. Va plegada: el alta de uno en uno sigue siendo el camino
+           principal, este es el atajo para quien ya trae el plantel escrito. */
+        .bulk-players {
+            grid-column: 1 / -1;
+            margin-top: 1.25rem;
+            padding-top: 1.25rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.12);
+            text-align: left;
+        }
+        .bulk-players__summary {
+            cursor: pointer;
+            color: var(--cyan-accent);
+            font-size: 0.9rem;
+            list-style: none;
+        }
+        .bulk-players__summary::before { content: '▸ '; }
+        .bulk-players[open] .bulk-players__summary::before { content: '▾ '; }
+        .bulk-players__summary::-webkit-details-marker { display: none; }
+
+        .bulk-players__hint {
+            margin: 0.85rem 0 0.6rem;
+            font-size: 0.82rem;
+            color: rgba(224, 231, 255, 0.75);
+            line-height: 1.5;
+        }
+        .bulk-players__input {
+            width: 100%;
+            padding: 0.75rem;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--orange);
+            color: white;
+            border-radius: 4px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.9rem;
+            resize: vertical;
+            margin-bottom: 0.85rem;
+        }
+        .bulk-players__input::placeholder { color: rgba(255, 165, 0, 0.5); }
+
+        .bulk-players__report {
+            margin-top: 0.9rem;
+            font-size: 0.82rem;
+            line-height: 1.6;
+            color: rgba(224, 231, 255, 0.85);
+        }
+        .bulk-players__report .is-problem { color: #ffb454; }
         
         /* Foto del jugador: selector con vista previa (form de alta) y
            miniatura circular en la fila de la tabla (una vez agregado). */

@@ -102,7 +102,8 @@
                     <!-- Organizador: Programar Partido (arriba, para que el organizador
                          agende sin tener que bajar tras toda la lista de partidos) -->
                     <div class="organizer-wrapper reveal" id="organizer-section" style="display: none;">
-                        <h3 style="margin-bottom: 1.5rem;">Programar Nuevo Partido</h3>
+                        <h3 style="margin-bottom: 1.5rem;" id="match-form-title">Programar Nuevo Partido</h3>
+                        <p class="match-edit-note" id="match-edit-note" style="display: none;"></p>
                         <form id="matchForm" class="match-form">
                             <div class="match-field">
                                 <label for="homeTeamSelect">Equipo local</label>
@@ -155,10 +156,37 @@
                             </div>
 
                             <div class="match-field match-submit-field">
-                                <button type="submit" class="btn-submit">Guardar Partido</button>
+                                <button type="submit" class="btn-submit" id="match-submit-btn">Guardar Partido</button>
+                                <button type="button" class="match-edit-cancel" id="match-edit-cancel" style="display: none;">Cancelar edición</button>
                             </div>
                         </form>
                         <div id="matchMessage" class="message-box" style="display: none;"></div>
+
+                        <!-- Generar el calendario completo de una vez. Montar a mano
+                             los 15 partidos de una liga de 6 era lo más tedioso de
+                             arrancar una temporada. Solo aparece si aún no hay
+                             partidos de fase regular. -->
+                        <div class="schedule-gen" id="schedule-gen" style="display: none;">
+                            <h4 class="schedule-gen__title">O genera el calendario completo</h4>
+                            <p class="schedule-gen__hint" id="schedule-gen-hint"></p>
+                            <div class="match-form">
+                                <div class="match-field">
+                                    <label for="sched-start">Primera jornada</label>
+                                    <input type="date" id="sched-start">
+                                </div>
+                                <div class="match-field">
+                                    <label for="sched-gap">Días entre jornadas</label>
+                                    <input type="number" id="sched-gap" min="1" max="30" value="7">
+                                </div>
+                                <div class="match-field">
+                                    <label for="sched-times">Horarios de cada jornada</label>
+                                    <input type="text" id="sched-times" value="18:00, 19:30, 21:00" placeholder="18:00, 19:30">
+                                </div>
+                                <div class="match-field match-submit-field">
+                                    <button type="button" class="btn-submit" id="btn-generate-schedule">Generar calendario</button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
                     <h2 class="section-header reveal" style="display: none;" id="matches-header">Calendario de Partidos</h2>
@@ -193,6 +221,7 @@
                                     <th>PJ</th>
                                     <th>G</th>
                                     <th>P</th>
+                                    <th title="Porcentaje de victorias">PCT</th>
                                     <th>PF</th>
                                     <th>PC</th>
                                     <th>DIFF</th>
@@ -217,6 +246,17 @@
                         </button>
                     </div>
                     <h2 class="section-header reveal" style="display: none;" id="playoffs-header">Playoffs</h2>
+                    <!-- Cierre de la temporada: hasta ahora, ganar la Gran Final no
+                         producía ningún momento en la interfaz. Es lo que el
+                         organizador quiere enseñar cuando todo termina. -->
+                    <div class="champion-banner" id="champion-banner" style="display: none;">
+                        <span class="champion-banner__label">Campeón</span>
+                        <div class="champion-banner__team">
+                            <span class="champion-banner__logo" id="champion-logo"></span>
+                            <span class="champion-banner__name" id="champion-name"></span>
+                        </div>
+                        <p class="champion-banner__detail" id="champion-detail"></p>
+                    </div>
                     <div class="bracket-container reveal" id="bracket-container" style="display: none;">
                         <div class="bracket-column" id="col-cuartos">
                             <div class="bracket-column-title">Cuartos<span class="bracket-column-count" id="count-cuartos"></span></div>

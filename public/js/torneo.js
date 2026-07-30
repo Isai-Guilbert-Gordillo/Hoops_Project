@@ -39,6 +39,11 @@ document.addEventListener('click', (e) => {
         window.openStatsModal(el.dataset.matchId);
     } else if (action === 'delete-match') {
         window.deleteMatch(el.dataset.matchId);
+    } else if (action === 'edit-match') {
+        // El botón vive dentro de tarjetas que ya tienen su propio click (abrir
+        // stats / iniciar mesa): sin esto, editar dispararía también esa acción.
+        e.stopPropagation();
+        if (window.startEditMatch) window.startEditMatch(el.dataset.matchId);
     }
 });
 
@@ -78,6 +83,10 @@ document.addEventListener('click', (e) => {
             let viewYear = now.getFullYear();
             let viewMonth = now.getMonth();
             let selectedDate = null; // Date a nivel de día
+            // Al agendar un partido nuevo no tiene sentido elegir un día pasado,
+            // pero al REPROGRAMAR uno sí: puede que la fecha equivocada que se
+            // quiere corregir ya haya quedado atrás.
+            let allowPast = false;
 
             // Poblar selects de hora (00–23) y minutos (cada 5)
             for (let h = 0; h < 24; h++) {
@@ -116,7 +125,7 @@ document.addEventListener('click', (e) => {
                     btn.className = 'dt-day';
                     btn.textContent = d;
                     const cellDate = new Date(viewYear, viewMonth, d);
-                    if (cellDate < today) btn.disabled = true; // no agendar en el pasado
+                    if (!allowPast && cellDate < today) btn.disabled = true; // no agendar en el pasado
                     if (cellDate.getTime() === today.getTime()) btn.classList.add('today');
                     if (selectedDate &&
                         selectedDate.getFullYear() === viewYear &&
@@ -202,6 +211,42 @@ document.addEventListener('click', (e) => {
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && !popover.hidden) closePopover();
             });
+
+            // API mínima para el modo edición, que necesita precargar la fecha del
+            // partido que se está moviendo y volver a dejarlo todo limpio al salir.
+            window.matchDatePicker = {
+                set(isoLocal) {
+                    const [datePart, timePart = '12:00'] = String(isoLocal).split('T');
+                    const [y, mo, da] = datePart.split('-').map(Number);
+                    const [hh, mm] = timePart.split(':');
+                    if (!y || !mo || !da) return;
+
+                    allowPast = true;
+                    selectedDate = new Date(y, mo - 1, da);
+                    viewYear = y;
+                    viewMonth = mo - 1;
+
+                    // El select de minutos va de 5 en 5; un partido guardado a una
+                    // hora "rara" perdería el valor en silencio si no se añade.
+                    if (![...minSel.options].some(o => o.value === mm)) {
+                        const extra = document.createElement('option');
+                        extra.value = mm; extra.textContent = mm;
+                        minSel.appendChild(extra);
+                    }
+                    hourSel.value = hh;
+                    minSel.value = mm;
+
+                    hiddenInput.value = `${y}-${pad(mo)}-${pad(da)}T${hh}:${mm}`;
+                    triggerText.textContent = new Date(y, mo - 1, da, Number(hh), Number(mm))
+                        .toLocaleString('es-ES', { dateStyle: 'medium', timeStyle: 'short' });
+                    triggerText.classList.remove('placeholder');
+                    renderCalendar();
+                },
+                reset() {
+                    allowPast = false;
+                    clearBtn.click();
+                }
+            };
         })();
 
 // ---- bloque inline #4 ----
@@ -269,8 +314,12 @@ document.addEventListener('click', (e) => {
         document.getElementById('tournament-venue').innerText = window.toTitleCaseDisplay(tournament.venue);
         document.getElementById('tournament-max').innerText = tournament.maxTeams;
                 
+                // La fecha de inicio es un día suelto guardado a medianoche UTC:
+                // formatearla en horario local la retrasaba un día en cualquier
+                // zona al oeste de Greenwich (se creaba el 10/8 y se leía 9/8).
                 const theDate = new Date(tournament.startDate);
-                document.getElementById('tournament-date').innerText = theDate.toLocaleDateString('es-ES');
+                document.getElementById('tournament-date').innerText =
+                    theDate.toLocaleDateString('es-ES', { timeZone: 'UTC' });
 
                 document.getElementById('tournament-hero').style.display = 'block';
                 document.getElementById('teams-header').style.display = 'block';
@@ -293,6 +342,9 @@ document.addEventListener('click', (e) => {
 
                         const card = document.createElement('div');
                         card.className = 'enrolled-card';
+                        // Permite repintar solo esta tarjeta al actualizar su pago,
+                        // sin recargar la página entera.
+                        card.dataset.enrollmentId = enrollment.id;
 
                         const initial = escapeHtml((team.name || '?').trim().charAt(0).toUpperCase());
                         const logoHtml = team.logoUrl
@@ -305,9 +357,15 @@ document.addEventListener('click', (e) => {
                         const paidPct = cost > 0 ? Math.min(100, Math.round((paid / cost) * 100)) : 0;
                         const isPaid = cost > 0 && pending <= 0;
 
+                        // El backend solo manda los campos de pago a quien puede verlos
+                        // (organizador, admin, o el capitán de esa misma franquicia).
+                        // Si no vienen, aquí no se pinta nada de dinero: un visitante
+                        // cualquiera no tiene por qué saber quién va al día y quién debe.
+                        const canSeePayment = enrollment.amountPaid !== undefined;
+
                         let statusBadge = '';
                         let paymentInfo = '';
-                        if (cost > 0) {
+                        if (cost > 0 && canSeePayment) {
                             statusBadge = isPaid
                                 ? `<span class="enr-badge is-paid">Pagado</span>`
                                 : `<span class="enr-badge is-debt">Debe $${pending}</span>`;
@@ -323,9 +381,12 @@ document.addEventListener('click', (e) => {
 
                         let organizerControls = '';
                         if (isOrganizer && cost > 0) {
+                            // El campo llega con lo ya registrado (no vacío): así se ve de
+                            // dónde parte el ajuste. El max refleja la cuota, que es el
+                            // tope que aplica el backend.
                             organizerControls = `
                                 <div class="enr-controls">
-                                    <input type="number" id="pay-input-${enrollment.id}" class="enr-input" placeholder="Monto" min="0">
+                                    <input type="number" id="pay-input-${enrollment.id}" class="enr-input" placeholder="Monto" min="0" max="${cost}" value="${paid}">
                                     <button class="enr-btn btn-update-payment" data-enrollment-id="${enrollment.id}">Actualizar pago</button>
                                 </div>`;
                         }
@@ -359,16 +420,46 @@ document.addEventListener('click', (e) => {
                     // Almacenar en window array temporal para filtrar inscripciones luego
                     window.enrolledTeamsIds = enrolledTeamsIds;
                     
+                    // Repinta el estado de cobro de UNA tarjeta con el importe que
+                    // acaba de confirmar el servidor. Antes esto se resolvía con un
+                    // window.location.reload(): la tarjeta seguía mostrando el importe
+                    // viejo hasta que la página entera se recargaba, y el organizador
+                    // perdía el scroll en cada cobro (ocho veces en una liga de ocho).
+                    const paintPayment = (enrollmentId, paidNow, cost) => {
+                        const card = document.querySelector(`.enrolled-card[data-enrollment-id="${enrollmentId}"]`);
+                        if (!card) return;
+
+                        const pendingNow = cost - paidNow;
+                        const settled = cost > 0 && pendingNow <= 0;
+
+                        const badge = card.querySelector('.enr-badge');
+                        if (badge) {
+                            badge.className = `enr-badge ${settled ? 'is-paid' : 'is-debt'}`;
+                            badge.textContent = settled ? 'Pagado' : `Debe $${pendingNow}`;
+                        }
+
+                        const bar = card.querySelector('.enr-pay__bar span');
+                        if (bar) bar.style.width = (cost > 0 ? Math.min(100, Math.round((paidNow / cost) * 100)) : 0) + '%';
+
+                        const paidLabel = card.querySelector('.enr-pay__summary .is-ok');
+                        if (paidLabel) paidLabel.textContent = `$${paidNow}`;
+
+                        const input = card.querySelector('.enr-input');
+                        if (input) input.value = paidNow;
+                    };
+
                     // Manejar clics de Actualizar Pago
                     document.querySelectorAll('.btn-update-payment').forEach(btn => {
                         btn.addEventListener('click', async (e) => {
                             e.preventDefault();
-                            const enrollmentId = e.target.getAttribute('data-enrollment-id');
+                            const button = e.currentTarget;
+                            const enrollmentId = button.getAttribute('data-enrollment-id');
                             const input = document.getElementById(`pay-input-${enrollmentId}`);
-                            if (!input.value || input.value === "") {
+                            if (!input || input.value.trim() === '') {
                                 return showToast('Ingresa un monto válido', 'error');
                             }
-                            
+
+                            button.disabled = true;
                             try {
                                 const res = await fetch(`/api/enrollments/${enrollmentId}/payment`, {
                                     method: 'PUT',
@@ -378,16 +469,18 @@ document.addEventListener('click', (e) => {
                                     },
                                     body: JSON.stringify({ amountPaid: input.value })
                                 });
-                                
+
+                                const data = await res.json().catch(() => ({}));
                                 if (res.ok) {
                                     showToast('Pago actualizado correctamente', 'success');
-                                    setTimeout(() => window.location.reload(), 1000);
+                                    paintPayment(enrollmentId, data.amountPaid, tournament.inscriptionFee || 0);
                                 } else {
-                                    const data = await res.json();
                                     showToast(data.error || 'Error al actualizar', 'error');
                                 }
                             } catch (err) {
                                 showToast('Error de red', 'error');
+                            } finally {
+                                button.disabled = false;
                             }
                         });
                     });
@@ -397,6 +490,14 @@ document.addEventListener('click', (e) => {
                 }
 
                 // --------- INICIO: Tabla de Posiciones ---------
+                // Porcentaje de victorias al estilo de la tabla de básquet: .750,
+                // sin el cero de la izquierda. Es el criterio con el que ordena el
+                // servidor, así que tiene que verse para que el orden se entienda.
+                const formatPct = (pct) => {
+                    if (typeof pct !== 'number') return '—';
+                    if (pct >= 1) return '1.000';
+                    return pct.toFixed(3).slice(1);
+                };
                 try {
                     const stResponse = await fetch(`/api/tournaments/${tournamentId}/standings`);
                     if (stResponse.ok) {
@@ -424,6 +525,7 @@ document.addEventListener('click', (e) => {
                                     <td>${s.pj}</td>
                                     <td>${s.g}</td>
                                     <td>${s.p}</td>
+                                    <td>${formatPct(s.pct)}</td>
                                     <td>${s.pf}</td>
                                     <td>${s.pc}</td>
                                     <td>${s.diff}</td>
@@ -495,13 +597,15 @@ document.addEventListener('click', (e) => {
                                 actionBtn = `<button class="btn-match-action primary" data-action="navigate" data-href="/mesa-control.html?matchId=${match.id}">▶ Iniciar partido</button>`;
                             }
 
-                            // Cancelar partido (bote de basura): solo el organizador y solo si aún no se jugó
+                            // Reprogramar y cancelar: solo el organizador y solo si aún no se jugó
+                            let editBtn = '';
                             if (isOrganizer && !isPlayed) {
+                                editBtn = `<button class="btn-match-edit" title="Reprogramar partido" aria-label="Reprogramar partido" data-action="edit-match" data-match-id="${match.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"></path></svg></button>`;
                                 deleteBtn = `<button class="btn-match-delete" title="Cancelar partido" aria-label="Cancelar partido" data-action="delete-match" data-match-id="${match.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg></button>`;
                             }
 
-                            const actionsRow = (actionBtn || deleteBtn)
-                                ? `<div class="match-actions">${actionBtn}${deleteBtn}</div>`
+                            const actionsRow = (actionBtn || editBtn || deleteBtn)
+                                ? `<div class="match-actions">${actionBtn}${editBtn}${deleteBtn}</div>`
                                 : '';
 
                             mCard.innerHTML = `
@@ -627,9 +731,12 @@ document.addEventListener('click', (e) => {
 
                             let scoreInputs = '';
                             if (match.status === 'SCHEDULED' && isOrganizer) {
+                                // Las rondas de playoffs se agendan solas a hoy + 7 días:
+                                // sin este botón, esa fecha era imposible de corregir.
                                 scoreInputs = `
                                     <div class="bracket-match-actions">
                                         <button class="bracket-btn-start">▶ Iniciar (Mesa)</button>
+                                        <button type="button" class="bracket-btn-edit" data-action="edit-match" data-match-id="${match.id}">Cambiar fecha</button>
                                     </div>
                                 `;
                             }
@@ -688,16 +795,54 @@ document.addEventListener('click', (e) => {
                         semisMatches.forEach(m => renderBracketMatch(m, 'col-semis'));
                         finalMatches.forEach(m => renderBracketMatch(m, 'col-final'));
 
-                        // Placeholders: semis pendientes de que terminen los 4 cuartos
+                        // Una liga de 4 equipos arranca en Semifinal y una de 2-3
+                        // directamente en la Final: las columnas anteriores no
+                        // existen y se ocultan con su conector, en vez de dejar
+                        // una columna "Cuartos" vacía que parece un error.
+                        const toggleBracketColumn = (colId, visible) => {
+                            const col = document.getElementById(colId);
+                            if (!col) return;
+                            col.style.display = visible ? '' : 'none';
+                            const connector = col.nextElementSibling;
+                            if (connector && connector.classList.contains('bracket-connector')) {
+                                connector.style.display = visible ? '' : 'none';
+                            }
+                        };
+                        toggleBracketColumn('col-cuartos', cuartosMatches.length > 0);
+                        toggleBracketColumn('col-semis', cuartosMatches.length > 0 || semisMatches.length > 0);
+
+                        // Placeholders: semis pendientes de que terminen los cuartos
+                        // (son 2 tanto en el cuadro de 8 como en el de 6 con byes).
                         if (semisMatches.length === 0 && cuartosMatches.length > 0) {
-                            const remaining = cuartosMatches.filter(m => !isMatchDone(m)).length || 2;
-                            for (let i = 0; i < Math.min(remaining, 2); i++) {
+                            for (let i = 0; i < 2; i++) {
                                 renderPlaceholder('col-semis', 'Esperando resultados de Cuartos');
                             }
                         }
                         // Placeholder: final pendiente de que terminen las 2 semis
                         if (finalMatches.length === 0 && semisMatches.length > 0) {
                             renderPlaceholder('col-final', 'Esperando resultados de Semifinal');
+                        }
+
+                        // Campeón: la Gran Final terminada cierra la temporada.
+                        const decidedFinal = finalMatches.find(isMatchDone);
+                        if (decidedFinal) {
+                            const homeWon = decidedFinal.homeScore > decidedFinal.awayScore;
+                            const champion = homeWon ? decidedFinal.homeTeam : decidedFinal.awayTeam;
+                            const runnerUp = homeWon ? decidedFinal.awayTeam : decidedFinal.homeTeam;
+                            const winnerScore = Math.max(decidedFinal.homeScore, decidedFinal.awayScore);
+                            const loserScore = Math.min(decidedFinal.homeScore, decidedFinal.awayScore);
+
+                            const banner = document.getElementById('champion-banner');
+                            const logoBox = document.getElementById('champion-logo');
+                            if (banner && logoBox) {
+                                logoBox.innerHTML = champion.logoUrl && champion.logoUrl.trim() !== ''
+                                    ? `<img src="${escapeHtml(champion.logoUrl)}" alt="Logo ${escapeHtml(champion.name)}" data-fallback="placeholder" data-fallback-text="${escapeHtml(champion.name.charAt(0).toUpperCase())}">`
+                                    : escapeHtml(champion.name.charAt(0).toUpperCase());
+                                document.getElementById('champion-name').textContent = champion.name;
+                                document.getElementById('champion-detail').textContent =
+                                    `Ganó la Gran Final ${winnerScore}-${loserScore} a ${runnerUp.name}.`;
+                                banner.style.display = 'flex';
+                            }
                         }
 
                         // Contadores en el título de cada columna
@@ -717,13 +862,42 @@ document.addEventListener('click', (e) => {
                         const playoffsHint = document.getElementById('playoffs-hint');
                         if (btnPlayoffs) {
                             const btnLabel = btnPlayoffs.querySelector('.btn-content');
-                            const cuartosFinished = cuartosMatches.length === 4 && cuartosMatches.every(isMatchDone);
+                            const cuartosFinished = cuartosMatches.length > 0 && cuartosMatches.every(isMatchDone);
                             const semisFinished = semisMatches.length === 2 && semisMatches.every(isMatchDone);
 
-                            if (cuartosMatches.length === 0) {
-                                btnPlayoffs.style.display = 'inline-flex';
-                                if (btnLabel) btnLabel.textContent = '🏆 GENERAR CUARTOS DE FINAL';
-                                if (playoffsHint) playoffsHint.textContent = 'Cuando termine la fase regular, genera aquí los Cuartos de Final. De ahí en adelante, cada ronda avanza sola en cuanto se registran todos sus resultados.';
+                            if (playoffMatches.length === 0) {
+                                // Cuántos equipos jugaron de verdad la fase regular:
+                                // de ahí sale la ronda por la que empezará el cuadro.
+                                const activeTeams = new Set();
+                                regularMatches.filter(isMatchDone).forEach(m => {
+                                    activeTeams.add(m.homeTeamId);
+                                    activeTeams.add(m.awayTeamId);
+                                });
+                                const n = activeTeams.size;
+
+                                let roundLabel = null;
+                                let roundDetail = '';
+                                if (n >= 8) {
+                                    roundLabel = 'CUARTOS DE FINAL';
+                                    roundDetail = `Se cruzarán los 8 mejores de la tabla (hay ${n} equipos con partidos jugados).`;
+                                } else if (n >= 6) {
+                                    roundLabel = 'CUARTOS DE FINAL';
+                                    roundDetail = `Con ${n} equipos, los dos primeros de la tabla pasan directos a semifinales y el resto juega cuartos.`;
+                                } else if (n >= 4) {
+                                    roundLabel = 'SEMIFINALES';
+                                    roundDetail = `Con ${n} equipos el cuadro arranca en semifinales: 1º-4º y 2º-3º.`;
+                                } else if (n >= 2) {
+                                    roundLabel = 'LA GRAN FINAL';
+                                    roundDetail = `Con ${n} equipos se juega directamente la final entre los dos primeros.`;
+                                }
+
+                                btnPlayoffs.style.display = roundLabel ? 'inline-flex' : 'none';
+                                if (btnLabel && roundLabel) btnLabel.textContent = `🏆 GENERAR ${roundLabel}`;
+                                if (playoffsHint) {
+                                    playoffsHint.textContent = roundLabel
+                                        ? `${roundDetail} De ahí en adelante, cada ronda avanza sola en cuanto se registran todos sus resultados.`
+                                        : 'Para armar las eliminatorias hacen falta al menos 2 equipos con partidos jugados en la fase regular.';
+                                }
                             } else if (semisMatches.length === 0 && cuartosFinished) {
                                 // No debería pasar (el auto-avance ya lo hizo al guardar el
                                 // último resultado), pero queda como respaldo manual.
@@ -734,10 +908,18 @@ document.addEventListener('click', (e) => {
                                 if (btnLabel) btnLabel.textContent = '🏆 AVANZAR A FINAL';
                             } else {
                                 btnPlayoffs.style.display = 'none';
-                                if (playoffsHint && cuartosMatches.length > 0) {
-                                    playoffsHint.textContent = finalMatches.length > 0
-                                        ? 'La Gran Final ya está en marcha.'
-                                        : 'La siguiente ronda se generará sola en cuanto termine la actual. No necesitas hacer nada más aquí.';
+                                // Con un cuadro que arranca en Semifinal no hay cuartos,
+                                // así que la condición mira los playoffs en conjunto: si
+                                // no, se quedaba el texto inicial de "genera los cuartos"
+                                // con las semifinales ya en marcha.
+                                if (playoffsHint && playoffMatches.length > 0) {
+                                    if (finalMatches.some(isMatchDone)) {
+                                        playoffsHint.textContent = 'Temporada cerrada: ya hay campeón.';
+                                    } else if (finalMatches.length > 0) {
+                                        playoffsHint.textContent = 'La Gran Final ya está en marcha.';
+                                    } else {
+                                        playoffsHint.textContent = 'La siguiente ronda se generará sola en cuanto termine la actual. No necesitas hacer nada más aquí.';
+                                    }
                                 }
                             }
                         }
@@ -929,18 +1111,27 @@ document.addEventListener('click', (e) => {
                                         return;
                                     }
 
+                                    // Reprogramando: solo se manda lo que cambia. En un
+                                    // partido de eliminatoria los equipos los decide el
+                                    // cuadro, así que ahí solo viaja la fecha.
+                                    const editing = window.matchEditState && window.matchEditState.matchId;
+                                    const url = editing
+                                        ? `/api/matches/${window.matchEditState.matchId}`
+                                        : `/api/tournaments/${tournamentId}/matches`;
+                                    const payload = editing
+                                        ? (window.matchEditState.stage === 'REGULAR'
+                                            ? { homeTeamId: hId, awayTeamId: aId, matchDate: dateVal }
+                                            : { matchDate: dateVal })
+                                        : { homeTeamId: hId, awayTeamId: aId, matchDate: dateVal };
+
                                     try {
-                                        const r = await fetch(`/api/tournaments/${tournamentId}/matches`, {
-                                            method: 'POST',
+                                        const r = await fetch(url, {
+                                            method: editing ? 'PATCH' : 'POST',
                                             headers: {
                                                 'Content-Type': 'application/json',
                                                 'Authorization': `Bearer ${token}`
                                             },
-                                            body: JSON.stringify({
-                                                homeTeamId: hId,
-                                                awayTeamId: aId,
-                                                matchDate: dateVal
-                                            })
+                                            body: JSON.stringify(payload)
                                         });
 
                                         const d = await r.json();
@@ -950,8 +1141,8 @@ document.addEventListener('click', (e) => {
                                             mMsg.innerText = d.error || 'Error al programar.';
                                         } else {
                                             mMsg.style.color = '#00f0ff';
-                                            mMsg.innerText = 'Partido guardado.';
-                                            setTimeout(() => window.location.reload(), 2000);
+                                            mMsg.innerText = editing ? 'Partido reprogramado.' : 'Partido guardado.';
+                                            setTimeout(() => window.location.reload(), 1500);
                                         }
                                     } catch (err) {
                                         mMsg.style.display = 'block';
@@ -959,6 +1150,133 @@ document.addEventListener('click', (e) => {
                                         mMsg.innerText = 'Error de red.';
                                     }
                                 });
+
+                                // ---- Reprogramar un partido ----
+                                // Reutiliza este mismo formulario en vez de duplicar el
+                                // selector de fecha en un modal aparte.
+                                window.matchEditState = { matchId: null, stage: null };
+                                // El generador solo tiene sentido con el calendario vacío.
+                                // Se mira tournament.matches y no regularMatches porque esa
+                                // variable vive dentro del bloque "si hay partidos", que
+                                // justo con el calendario vacío no llega a ejecutarse.
+                                const hasRegularMatches = (tournament.matches || []).some(m => m.stage === 'REGULAR');
+
+                                const formTitle = document.getElementById('match-form-title');
+                                const editNote = document.getElementById('match-edit-note');
+                                const submitBtn = document.getElementById('match-submit-btn');
+                                const cancelBtn = document.getElementById('match-edit-cancel');
+                                const scheduleGen = document.getElementById('schedule-gen');
+
+                                function exitEditMode() {
+                                    window.matchEditState = { matchId: null, stage: null };
+                                    formTitle.textContent = 'Programar Nuevo Partido';
+                                    editNote.style.display = 'none';
+                                    submitBtn.textContent = 'Guardar Partido';
+                                    cancelBtn.style.display = 'none';
+                                    homeSelect.disabled = false;
+                                    awaySelect.disabled = false;
+                                    homeSelect.value = '';
+                                    awaySelect.value = '';
+                                    document.getElementById('matchMessage').style.display = 'none';
+                                    if (window.matchDatePicker) window.matchDatePicker.reset();
+                                    if (scheduleGen && !hasRegularMatches) scheduleGen.style.display = '';
+                                }
+
+                                window.startEditMatch = (matchId) => {
+                                    const match = tournament.matches.find(m => m.id === matchId);
+                                    if (!match) return;
+
+                                    window.matchEditState = { matchId, stage: match.stage };
+
+                                    formTitle.textContent = 'Reprogramar Partido';
+                                    const isPlayoff = match.stage !== 'REGULAR';
+                                    const STAGE_NAME = { CUARTOS: 'Cuartos de final', SEMIFINAL: 'Semifinal', FINAL: 'Gran Final' };
+                                    editNote.textContent = isPlayoff
+                                        ? `${STAGE_NAME[match.stage] || match.stage}: ${match.homeTeam.name} vs ${match.awayTeam.name}. En eliminatorias solo puedes cambiar la fecha.`
+                                        : `${match.homeTeam.name} vs ${match.awayTeam.name}`;
+                                    editNote.style.display = 'block';
+                                    submitBtn.textContent = 'Guardar cambios';
+                                    cancelBtn.style.display = 'inline-block';
+
+                                    homeSelect.value = match.homeTeamId;
+                                    awaySelect.value = match.awayTeamId;
+                                    homeSelect.disabled = isPlayoff;
+                                    awaySelect.disabled = isPlayoff;
+
+                                    // El picker trabaja en hora local con el formato que ya
+                                    // usa el input oculto (YYYY-MM-DDTHH:mm).
+                                    const d = new Date(match.matchDate);
+                                    const p = n => String(n).padStart(2, '0');
+                                    if (window.matchDatePicker) {
+                                        window.matchDatePicker.set(
+                                            `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+                                        );
+                                    }
+
+                                    if (scheduleGen) scheduleGen.style.display = 'none';
+
+                                    // El formulario vive en la pestaña Calendario; un partido
+                                    // de playoffs se edita desde el cuadro, así que hay que
+                                    // llevar al organizador hasta allí.
+                                    const calTab = document.querySelector('.side-tab[data-tab="calendario"]');
+                                    if (calTab) calTab.click();
+                                    document.getElementById('organizer-section').scrollIntoView({ block: 'center', behavior: 'smooth' });
+                                };
+
+                                cancelBtn.addEventListener('click', exitEditMode);
+
+                                // ---- Generador de calendario (todos contra todos) ----
+                                const enrolledCount = (tournament.enrollments || []).length;
+                                if (scheduleGen && !hasRegularMatches && enrolledCount >= 2) {
+                                    const rounds = enrolledCount % 2 === 0 ? enrolledCount - 1 : enrolledCount;
+                                    const games = (enrolledCount * (enrolledCount - 1)) / 2;
+                                    document.getElementById('schedule-gen-hint').textContent =
+                                        `Con ${enrolledCount} franquicias son ${games} partidos en ${rounds} jornadas, todos contra todos una vez.`;
+
+                                    const startInput = document.getElementById('sched-start');
+                                    if (startInput && tournament.startDate) {
+                                        startInput.value = new Date(tournament.startDate).toISOString().slice(0, 10);
+                                    }
+                                    scheduleGen.style.display = '';
+
+                                    document.getElementById('btn-generate-schedule').addEventListener('click', async (ev) => {
+                                        const btn = ev.currentTarget;
+                                        const times = document.getElementById('sched-times').value
+                                            .split(',').map(t => t.trim()).filter(Boolean);
+
+                                        if (!(await showConfirm(`Se crearán ${games} partidos en ${rounds} jornadas. Podrás mover cualquiera después.`, { title: 'Generar calendario', confirmText: 'Generar', danger: false }))) {
+                                            return;
+                                        }
+
+                                        btn.disabled = true;
+                                        const old = btn.textContent;
+                                        btn.textContent = 'Generando…';
+                                        try {
+                                            const r = await fetch(`/api/tournaments/${tournamentId}/schedule`, {
+                                                method: 'POST',
+                                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                                body: JSON.stringify({
+                                                    startDate: document.getElementById('sched-start').value,
+                                                    daysBetweenRounds: document.getElementById('sched-gap').value,
+                                                    times
+                                                })
+                                            });
+                                            const d = await r.json();
+                                            if (!r.ok) {
+                                                showToast(d.error || 'No se pudo generar el calendario.', 'error');
+                                                btn.disabled = false;
+                                                btn.textContent = old;
+                                            } else {
+                                                showToast(d.message, 'success');
+                                                setTimeout(() => window.location.reload(), 1500);
+                                            }
+                                        } catch (err) {
+                                            showToast('Error de red.', 'error');
+                                            btn.disabled = false;
+                                            btn.textContent = old;
+                                        }
+                                    });
+                                }
 
                                 // Evento para avanzar de Fase en Playoffs
                                 const btnGeneratePlayoffs = document.getElementById('btn-generate-playoffs');
@@ -1040,29 +1358,30 @@ document.addEventListener('click', (e) => {
                 return; // Si no hay torneo, paramos
             }
 
-            // Sección de inscripción. Dos modos:
-            //  • Capitán (no organizador): elige entre SUS franquicias no inscritas.
-            //  • Organizador dueño (o admin): puede inscribir CUALQUIER franquicia
-            //    registrada que aún no esté en el torneo, para armar su liga.
+            // Sección de inscripción: cada quien inscribe SUS propias franquicias.
+            // Antes, al organizador se le ofrecía el catálogo completo (/api/teams),
+            // así que podía meter en su liga la franquicia de un desconocido sin
+            // pedirle permiso. Ahora el backend solo acepta al capitán, y este
+            // desplegable ofrece lo mismo que el backend permite: si mostrara
+            // equipos ajenos, elegir uno terminaría en un 403 a ciegas.
+            // El organizador arma su liga con sus propias franquicias (tiene cupo
+            // para 64) o repartiendo el enlace de invitación.
             if (token) {
                 try {
                     const selectElement = document.getElementById('franchise-select');
                     const sectionEl = document.getElementById('enrollment-section');
                     const submitBtn = document.querySelector('#enrollForm button[type="submit"]');
 
-                    let candidateTeams = [];
+                    const teamsRes = await fetch('/api/users/me/teams', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const candidateTeams = teamsRes.ok ? await teamsRes.json() : [];
+
                     if (isOrganizer) {
-                        const allRes = await fetch('/api/teams', { credentials: 'include' });
-                        candidateTeams = allRes.ok ? await allRes.json() : [];
                         const heading = sectionEl.querySelector('h3');
                         if (heading) heading.textContent = 'Inscribir una Franquicia al Torneo';
                         const defaultOpt = selectElement.querySelector('option[value=""]');
                         if (defaultOpt) defaultOpt.text = 'Selecciona una franquicia...';
-                    } else {
-                        const teamsRes = await fetch('/api/users/me/teams', {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        candidateTeams = teamsRes.ok ? await teamsRes.json() : [];
                     }
 
                     sectionEl.style.display = 'block';
@@ -1079,37 +1398,27 @@ document.addEventListener('click', (e) => {
                         const opt = document.createElement('option');
                         opt.value = t.id;
 
-                        if (isOrganizer) {
-                            // Etiqueta rica: capitán + nº de jugadores. Es lo que permite
-                            // distinguir dos equipos homónimos de capitanes distintos.
-                            const cap = t.captain
-                                ? (window.capitalizeName
-                                    ? window.capitalizeName(`${t.captain.firstName} ${t.captain.lastName}`)
-                                    : `${t.captain.firstName} ${t.captain.lastName}`)
-                                : 'Sin capitán';
-                            const nPlayers = t._count?.players ?? 0;
-                            const eligible = nPlayers >= 3;
-                            opt.text = `${t.name} — Cap. ${cap} · ${nPlayers} jug.${eligible ? '' : ' (incompleto)'}`;
-                            // Los equipos con <3 jugadores no pueden inscribirse (regla del
-                            // backend): se muestran deshabilitados para evitar el error a ciegas.
-                            if (!eligible) opt.disabled = true;
-                            else hasEligibleTeam = true;
-                        } else {
-                            opt.text = t.name;
-                            hasEligibleTeam = true;
-                        }
+                        // Ya no hace falta el nombre del capitán (todas son propias),
+                        // pero sí el plantel: el backend exige 3 jugadores mínimo, así
+                        // que las incompletas se marcan y se deshabilitan en vez de
+                        // dejar que el organizador choque con el error.
+                        const nPlayers = t._count?.players ?? 0;
+                        const eligible = nPlayers >= 3;
+                        opt.text = `${t.name} · ${nPlayers} jug.${eligible ? '' : ' (incompleto)'}`;
+                        if (!eligible) opt.disabled = true;
+                        else hasEligibleTeam = true;
 
                         selectElement.appendChild(opt);
                     });
 
-                    // Buscador para el organizador: filtra el dropdown por nombre de
-                    // equipo o capitán (imprescindible cuando hay decenas de equipos).
+                    // Buscador: un organizador puede tener hasta 64 franquicias propias,
+                    // así que filtrar por nombre sigue siendo necesario.
                     if (isOrganizer && selectElement.options.length > 1) {
                         const search = document.createElement('input');
                         search.type = 'search';
                         search.id = 'franchise-search';
                         search.className = 'enroll-search';
-                        search.placeholder = '🔍 Filtrar por equipo o capitán…';
+                        search.placeholder = '🔍 Filtrar por nombre de franquicia…';
                         search.autocomplete = 'off';
                         selectElement.parentElement.insertBefore(search, selectElement);
                         search.addEventListener('input', () => {
@@ -1130,7 +1439,7 @@ document.addEventListener('click', (e) => {
                         const opt = document.createElement('option');
                         opt.value = "";
                         opt.text = isOrganizer
-                            ? "No hay franquicias disponibles para inscribir"
+                            ? "No tienes franquicias listas para inscribir"
                             : "No tienes franquicias disponibles";
                         opt.disabled = true;
                         opt.selected = true;

@@ -4,6 +4,23 @@
         let sessionUser = null;
         let allTournaments = [];
 
+        // La fecha de inicio se guarda como día suelto (medianoche UTC). Si se
+        // formatea en horario local, cualquier zona al oeste de Greenwich la pinta
+        // un día antes: se escribía el 10/8 y la tarjeta mostraba 9/8. Por eso se
+        // lee y se escribe siempre en UTC.
+        function formatStartDate(iso) {
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return 'Próximamente';
+            return d.toLocaleDateString('es-ES', { timeZone: 'UTC' });
+        }
+
+        // Mismo criterio para rellenar un <input type="date"> (espera YYYY-MM-DD).
+        function toDateInputValue(iso) {
+            const d = new Date(iso);
+            if (isNaN(d.getTime())) return '';
+            return d.toISOString().slice(0, 10);
+        }
+
         document.addEventListener('click', (e) => {
             const el = e.target.closest('[data-action]');
             if (!el) return;
@@ -29,13 +46,13 @@
                 sessionUser = null;
             }
 
+            // El estado lo calcula el servidor a partir de los partidos jugados
+            // (ver /api/tournaments). El respaldo por fecha solo actúa si la
+            // respuesta viniera sin el campo.
             function getTournamentStatus(torneo) {
+                if (torneo.status) return torneo.status;
                 if (!torneo.startDate) return 'open';
-                const start = new Date(torneo.startDate);
-                const now = new Date();
-                if (start.getTime() > now.getTime()) return 'open';
-                if (now.getTime() - start.getTime() < 30 * 24 * 60 * 60 * 1000) return 'live';
-                return 'ended';
+                return new Date(torneo.startDate).getTime() > Date.now() ? 'open' : 'live';
             }
 
             const STATUS_LABEL = {
@@ -75,8 +92,7 @@
                 noResultsMsg.style.display = 'none';
 
                 list.forEach(torneo => {
-                    const originalDate = torneo.startDate ? new Date(torneo.startDate) : null;
-                    const fechaFormateada = originalDate ? originalDate.toLocaleDateString('es-ES') : 'Próximamente';
+                    const fechaFormateada = torneo.startDate ? formatStartDate(torneo.startDate) : 'Próximamente';
                     const status = STATUS_LABEL[getTournamentStatus(torneo)];
                     const teamsCell = torneo.maxTeams
                         ? `<span class="count-up" data-countup="${torneo.maxTeams}">0</span>`
@@ -186,9 +202,11 @@
                     e.preventDefault();
                     if (!editingTournamentId) return;
                     const updated = {
-                        name:     document.getElementById('edit-t-name').value,
-                        category: document.getElementById('edit-t-category').value,
-                        venue:    document.getElementById('edit-t-venue').value
+                        name:      document.getElementById('edit-t-name').value,
+                        category:  document.getElementById('edit-t-category').value,
+                        venue:     document.getElementById('edit-t-venue').value,
+                        maxTeams:  document.getElementById('edit-t-maxteams').value,
+                        startDate: document.getElementById('edit-t-startdate').value
                     };
                     fetch(`/api/tournaments/${editingTournamentId}`, {
                         method: 'PUT', credentials: 'include',
@@ -212,9 +230,48 @@
                     const torneo = allTournaments.find(t => t.id === id);
                     if (!torneo) return;
                     editingTournamentId = id;
-                    document.getElementById('edit-t-name').value     = torneo.name     || '';
-                    document.getElementById('edit-t-category').value = torneo.category || '';
-                    document.getElementById('edit-t-venue').value    = torneo.venue    || '';
+                    document.getElementById('edit-t-name').value  = torneo.name  || '';
+                    document.getElementById('edit-t-venue').value = torneo.venue || '';
+
+                    // El formato pasó de texto libre a lista cerrada. Una liga
+                    // creada antes puede traer un valor que no está entre las
+                    // opciones ("5vs5"): se añade como opción propia para que el
+                    // <select> no caiga en la primera y reescriba el dato solo.
+                    const categorySelect = document.getElementById('edit-t-category');
+                    const currentCategory = torneo.category || '';
+                    categorySelect.querySelectorAll('option[data-legacy]').forEach(o => o.remove());
+
+                    const isKnownCategory = [...categorySelect.options]
+                        .some(o => o.value === currentCategory);
+
+                    if (currentCategory && !isKnownCategory) {
+                        const legacyOption = document.createElement('option');
+                        legacyOption.value = currentCategory;
+                        legacyOption.textContent = `${currentCategory} (formato antiguo)`;
+                        legacyOption.dataset.legacy = 'true';
+                        categorySelect.insertBefore(legacyOption, categorySelect.firstChild);
+                    }
+
+                    categorySelect.value = currentCategory;
+
+                    // Cupos y fecha eran los dos datos que no se podían corregir:
+                    // equivocarse al crear la liga obligaba a borrarla entera.
+                    const maxTeamsInput = document.getElementById('edit-t-maxteams');
+                    const enrolled = torneo.enrolledTeams || 0;
+                    maxTeamsInput.value = torneo.maxTeams || '';
+                    maxTeamsInput.min = Math.max(2, enrolled);
+
+                    const hint = document.getElementById('edit-t-maxteams-hint');
+                    if (hint) {
+                        hint.textContent = enrolled > 0
+                            ? `Ya hay ${enrolled} franquicia(s) inscritas: no puedes bajar de ${enrolled}.`
+                            : 'Entre 2 y 16 franquicias.';
+                    }
+
+                    document.getElementById('edit-t-startdate').value = torneo.startDate
+                        ? toDateInputValue(torneo.startDate)
+                        : '';
+
                     editModal.style.display = 'flex';
                 };
             }

@@ -71,6 +71,76 @@
             document.getElementById('away-fouls-display').innerText = gameState.awayFouls;
         }
 
+        // ---------------------------------------------------------------------
+        // Guardado continuo
+        //
+        // Antes el partido entero vivía solo en memoria hasta pulsar "Terminar
+        // partido": recargar la pestaña, quedarse sin batería o que saltara el
+        // cierre por inactividad borraba dos horas de anotación. Ahora cada clic
+        // se manda al servidor en cuanto ocurre (PATCH .../player-stat, que ya
+        // existía sin usarse) y al recargar el partido se reconstruye.
+        //
+        // Es "best effort": la pantalla se actualiza al instante y el envío va
+        // detrás. Si falla la red no se pierde nada, porque al terminar el partido
+        // se sigue mandando el boxscore completo con valores absolutos; solo se
+        // avisa de que en ese momento no hay copia en el servidor.
+        // ---------------------------------------------------------------------
+        const STAT_ACTIONS = { pts: 'POINTS', reb: 'REBOUNDS', ast: 'ASSISTS' };
+        let syncQueue = Promise.resolve();   // encadena los envíos para que lleguen en orden
+        let pendingSyncs = 0;
+        let syncFailed = false;
+
+        function updateSyncIndicator() {
+            const el = document.getElementById('sync-status');
+            if (!el) return;
+
+            if (syncFailed) {
+                el.textContent = '⚠ Sin guardar en el servidor';
+                el.className = 'sync-status is-error';
+            } else if (pendingSyncs > 0) {
+                el.textContent = '⟳ Guardando…';
+                el.className = 'sync-status is-saving';
+            } else {
+                el.textContent = '✓ Guardado';
+                el.className = 'sync-status is-saved';
+            }
+        }
+
+        // Las faltas no se sincronizan porque PlayerStat no tiene columna para
+        // ellas: hoy tampoco se guardan al terminar el partido. Siguen siendo un
+        // contador en pantalla.
+        function syncStat(playerId, type, increment) {
+            const action = STAT_ACTIONS[type];
+            if (!action || !matchId) return;
+
+            pendingSyncs++;
+            updateSyncIndicator();
+
+            syncQueue = syncQueue.then(async () => {
+                try {
+                    const res = await fetch(`/api/matches/${matchId}/player-stat`, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ playerId, action, increment })
+                    });
+                    if (!res.ok) throw new Error('respuesta ' + res.status);
+                    syncFailed = false;
+                } catch (err) {
+                    console.error('No se pudo guardar la jugada:', err);
+                    if (!syncFailed) {
+                        syncFailed = true;
+                        showToast('Sin conexión con el servidor. Se seguirá anotando y se guardará todo al terminar el partido.', 'error');
+                    }
+                } finally {
+                    pendingSyncs--;
+                    updateSyncIndicator();
+                }
+            });
+        }
+
         // Logic for Stats
         function addStat(playerId, type, value, teamType) {
             const p = gameState.players[playerId];
@@ -91,6 +161,8 @@
                 if (teamType === 'home') gameState.homeFouls += value;
                 else gameState.awayFouls += value;
             }
+
+            syncStat(playerId, type, value);
 
             // Update UI
             updateScoreboard();
@@ -141,6 +213,9 @@
 
             if (last.teamType === 'home') gameState.homeScore = Math.max(0, gameState.homeScore - last.value);
             else gameState.awayScore = Math.max(0, gameState.awayScore - last.value);
+
+            // El servidor también tiene que enterarse de que ese punto se anuló.
+            syncStat(last.playerId, 'pts', -last.value);
 
             updateScoreboard();
             updateUndoButtonState();
@@ -204,12 +279,27 @@
             addStat(playerId, stat, parseInt(value, 10), team);
         });
 
+        // El overlay de carga quedó fuera de la vista en algún rediseño, pero el
+        // código seguía haciendo getElementById('loading-overlay').style.display,
+        // que lanzaba un TypeError en CADA apertura de la mesa —y en las rutas de
+        // error, antes de poder avisar de nada—. Se tolera que no exista.
+        function hideLoadingOverlay() {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.style.display = 'none';
+        }
+
+        function showLoadError(message) {
+            const overlay = document.getElementById('loading-overlay');
+            if (overlay) overlay.innerText = message;
+            showToast(message, 'error');
+        }
+
         // Init
         window.onload = async () => {
             const token = localStorage.getItem('kphoops_token');
             if (!token) {
                 console.error("No token found");
-                document.getElementById('loading-overlay').innerText = 'Error al cargar el partido';
+                showLoadError('Inicia sesión para abrir la mesa de control.');
                 return;
             }
 
@@ -218,7 +308,7 @@
 
             if (!matchId) {
                 console.error("Match ID no proporcionado.");
-                document.getElementById('loading-overlay').innerText = 'Error al cargar el partido';
+                showLoadError('No se indicó qué partido abrir.');
                 return;
             }
 
@@ -230,8 +320,7 @@
                 if (!response.ok) {
                     const errorMsg = await response.text();
                     console.error(`Error HTTP ${response.status}:`, errorMsg);
-                    document.getElementById('loading-overlay').innerText = 'Error al cargar el partido';
-                    alert("Error al cargar el partido");
+                    showLoadError('No se pudo cargar el partido.');
                     return;
                 }
 
@@ -241,28 +330,54 @@
                 document.getElementById('home-name').innerText = match.homeTeam?.name || 'LOCAL';
                 document.getElementById('away-name').innerText = match.awayTeam?.name || 'VISITANTE';
 
-                // Mapeo del estado (gameState)
-                if (match.homeTeam && match.homeTeam.players) {
-                    match.homeTeam.players.forEach(p => {
-                        gameState.players[p.id] = { pts: 0, reb: 0, ast: 0, fouls: 0, teamType: 'home', name: p.name };
-                    });
-                }
+                // Mapeo del estado (gameState). Si el partido ya tenía jugadas
+                // guardadas —porque se recargó la página, se cerró la sesión por
+                // inactividad o se cambió de dispositivo— se arranca desde ellas
+                // en vez de desde cero.
+                const savedStats = {};
+                (match.stats || []).forEach(s => { savedStats[s.playerId] = s; });
 
-                if (match.awayTeam && match.awayTeam.players) {
-                    match.awayTeam.players.forEach(p => {
-                        gameState.players[p.id] = { pts: 0, reb: 0, ast: 0, fouls: 0, teamType: 'away', name: p.name };
+                const hydrate = (team, teamType) => {
+                    if (!team || !team.players) return;
+                    team.players.forEach(p => {
+                        const saved = savedStats[p.id];
+                        gameState.players[p.id] = {
+                            pts: saved ? saved.points : 0,
+                            reb: saved ? saved.rebounds : 0,
+                            ast: saved ? saved.assists : 0,
+                            fouls: 0, // las faltas no se persisten (no existen en PlayerStat)
+                            teamType,
+                            name: p.name
+                        };
                     });
-                }
+                };
+
+                hydrate(match.homeTeam, 'home');
+                hydrate(match.awayTeam, 'away');
+
+                // El marcador lo lleva el propio partido: el endpoint de stats lo
+                // va incrementando con cada canasta.
+                gameState.homeScore = match.homeScore || 0;
+                gameState.awayScore = match.awayScore || 0;
 
                 renderRoster(match.homeTeam, 'home', 'home-roster');
                 renderRoster(match.awayTeam, 'away', 'away-roster');
 
-                document.getElementById('loading-overlay').style.display = 'none';
+                updateScoreboard();
+                Object.keys(gameState.players).forEach(updatePlayerStatBadges);
+                updateSyncIndicator();
+
+                hideLoadingOverlay();
+
+                if (match.status === 'FINISHED') {
+                    showToast('Este partido ya está finalizado. Lo que anotes aquí sobrescribirá el resultado guardado.', 'error');
+                } else if ((match.stats || []).length > 0) {
+                    showToast('Partido recuperado: se retomó el marcador donde se quedó.', 'success');
+                }
 
             } catch (err) {
                 console.error("Reference/Fetch Error:", err);
-                document.getElementById('loading-overlay').innerText = 'Error al cargar el partido';
-                alert("Error al cargar el partido");
+                showLoadError('Error al cargar el partido.');
             }
         };
 
@@ -331,7 +446,7 @@
                     const stageLabel = advancedStage === 'FINAL' ? 'la Final' : 'la Semifinal';
                     showToast(`¡Partido guardado! Se generó automáticamente ${stageLabel}.`, 'success');
                 } else {
-                    showToast('Partido finzalizado y guardado con éxito.', 'success');
+                    showToast('Partido finalizado y guardado con éxito.', 'success');
                 }
 
                 // Redirigir de vuelta al torneo solo tras éxito en ambas peticiones
