@@ -202,3 +202,37 @@
             margin: 0 0 2rem;
             line-height: 1.5;
         }
+
+        /* --- Responsive --- */
+        /* En tablet el selector de torneo deja de necesitar 250px fijos: que
+           ocupe toda la fila bajo el título en vez de encoger el encabezado. */
+        @media (max-width: 720px) {
+            .hero-header {
+                margin-bottom: 1.5rem;
+            }
+            .tournament-select-wrap {
+                min-width: 0;
+                width: 100%;
+            }
+        }
+
+        /* En móvil las tres tablas de líderes se aprietan mucho: recuperamos
+           espacio quitando relleno a las celdas y bajando los números de
+           promedio, y damos algo más de aire a la columna del jugador. */
+        @media (max-width: 480px) {
+            .kp-table th,
+            .kp-table td {
+                padding-left: 0.4rem !important;
+                padding-right: 0.4rem !important;
+            }
+            .kp-table th:nth-child(1), .kp-table td:nth-child(1) { width: 12% !important; }
+            .kp-table th:nth-child(2), .kp-table td:nth-child(2) { width: 60% !important; }
+            .kp-table th:nth-child(3), .kp-table td:nth-child(3) { width: 28% !important; }
+            .player-info { gap: 0.5rem; }
+            .team-name-sub { font-size: 0.65rem; }
+            .avg-number { font-size: 0.72rem; }
+            .avg-number.leader-avg { font-size: 0.85rem; }
+            .empty-state { padding: 3rem 1rem; }
+            .empty-state .empty-icon { font-size: 3rem; }
+            .empty-state h3 { font-size: 0.9rem; }
+        }

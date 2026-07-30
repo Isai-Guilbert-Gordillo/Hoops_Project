@@ -98,3 +98,30 @@
             margin-top: 3rem;
             display: none;
         }
+
+        /* --- Responsive --- */
+        /* En móvil las tarjetas de partido dejan de caber en una fila: apilamos
+           el enfrentamiento sobre el marcador, encogemos el escudo del hero y
+           bajamos los tamaños de fuente arcade para que no desborden. */
+        @media (max-width: 640px) {
+            .match-card {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+                padding: 1rem 1.2rem;
+            }
+            .match-teams { font-size: 1.05rem; }
+            .team-logo-large {
+                width: 96px;
+                height: 96px;
+                font-size: 1.6rem;
+            }
+        }
+
+        @media (max-width: 400px) {
+            .team-logo-large { width: 80px; height: 80px; }
+            .team-record { font-size: 0.85rem; }
+            .match-teams { font-size: 0.95rem; }
+            .match-score { font-size: 1.05rem; }
+            #error-message { font-size: 1rem; }
+        }

@@ -26,9 +26,10 @@
                     const rank = index + 1;
                     const rankClass = rank === 1 ? 'rank-1' : rank === 2 ? 'rank-2' : rank === 3 ? 'rank-3' : '';
 
+                    const teamInitial = escapeHtml((p.teamName || '?').trim().charAt(0).toUpperCase() || '?');
                     let logoHtml = p.logoUrl
                         ? `<img src="${escapeHtml(p.logoUrl)}" class="team-logo" alt="Logo" data-fallback="hide">`
-                        : `<div class="team-logo">?</div>`;
+                        : `<div class="team-logo">${teamInitial}</div>`;
 
                     tr.innerHTML = `
                         <td class="rank-cell ${rankClass}">${rank}</td>

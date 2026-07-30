@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
+const sharp = require('sharp');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
@@ -182,17 +183,14 @@ if (!useCloudinary) {
     fs.mkdirSync(teamLogosDir, { recursive: true });
 }
 
-// Crea un uploader de multer para imágenes. En modo Cloudinary guarda el archivo
-// en memoria (buffer) para reenviarlo; en modo disco lo escribe en `diskDir`.
-function makeImageUploader(diskDir) {
+// Crea un uploader de multer para imágenes. Siempre guarda en memoria (buffer),
+// incluso en modo disco: el archivo NUNCA toca el disco ni Cloudinary hasta
+// pasar por validateAndReencodeImage() más abajo. El fileFilter de acá es solo
+// un rechazo rápido y barato por Content-Type; NO es la defensa real, porque
+// el Content-Type lo elige el cliente y es trivial de falsificar.
+function makeImageUploader() {
     return multer({
-        storage: useCloudinary
-            ? multer.memoryStorage()
-            : multer.diskStorage({
-                destination: (req, file, cb) => cb(null, diskDir),
-                filename: (req, file, cb) => cb(null,
-                    `${Date.now()}-${crypto.randomBytes(6).toString('hex')}${path.extname(file.originalname)}`)
-            }),
+        storage: multer.memoryStorage(),
         limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
         fileFilter: (req, file, cb) => {
             if (!file.mimetype.startsWith('image/')) {
@@ -203,8 +201,82 @@ function makeImageUploader(diskDir) {
     });
 }
 
-const uploadPlayerPhoto = makeImageUploader(playerPhotosDir);
-const uploadTeamLogo = makeImageUploader(teamLogosDir);
+const uploadPlayerPhoto = makeImageUploader();
+const uploadTeamLogo = makeImageUploader();
+
+class InvalidImageError extends Error {}
+
+// Firmas binarias ("magic bytes") de los únicos formatos de imagen que
+// aceptamos. Es la validación real: mirar los primeros bytes del archivo en
+// vez de confiar en su Content-Type o extensión, que el cliente controla
+// libremente. SVG queda fuera a propósito (es XML, no un formato rasterizado):
+// un SVG puede traer <script> embebido (XSS almacenado) o referencias como
+// <image xlink:href="http://169.254.169.254/..."> que, si algo aguas abajo
+// (Cloudinary, un visor, un re-encodeo) llega a interpretarlas, disparan
+// peticiones a red interna (SSRF). Como nunca llega a mirarlo un parser de
+// SVG, ese vector queda cerrado de raíz.
+function detectImageFormat(buffer) {
+    if (buffer.length >= 8 &&
+        buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+        return 'png';
+    }
+    if (buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+        return 'jpeg';
+    }
+    if (buffer.length >= 6 &&
+        buffer.toString('ascii', 0, 3) === 'GIF' &&
+        (buffer.toString('ascii', 3, 6) === '87a' || buffer.toString('ascii', 3, 6) === '89a')) {
+        return 'gif';
+    }
+    if (buffer.length >= 12 &&
+        buffer.toString('ascii', 0, 4) === 'RIFF' &&
+        buffer.toString('ascii', 8, 12) === 'WEBP') {
+        return 'webp';
+    }
+    return null;
+}
+
+// Valida el archivo por su contenido real (no por lo que el cliente diga que
+// es) y lo re-encodea con Sharp: decodificar y volver a codificar descarta
+// cualquier payload embebido que no sean píxeles (JS en metadatos, polyglots,
+// chunks manipulados) y de paso limita las dimensiones para evitar bombas de
+// descompresión. Devuelve el buffer final y la extensión a usar en el nombre
+// de archivo. Lanza InvalidImageError si el archivo no es una imagen soportada
+// o está corrupto.
+async function validateAndReencodeImage(buffer) {
+    const format = detectImageFormat(buffer);
+    if (!format) {
+        throw new InvalidImageError('El archivo no es una imagen válida (formatos permitidos: PNG, JPG, GIF, WEBP).');
+    }
+    try {
+        const image = sharp(buffer, { failOn: 'error' })
+            .resize({ width: 1024, height: 1024, fit: 'inside', withoutEnlargement: true });
+        const reencoded = await image.toFormat(format).toBuffer();
+        return { buffer: reencoded, ext: format === 'jpeg' ? 'jpg' : format };
+    } catch (err) {
+        throw new InvalidImageError('La imagen está dañada o no se pudo procesar.');
+    }
+}
+
+// Middleware a insertar después del upload de multer: si vino un archivo,
+// lo valida y reencodea antes de que el handler de la ruta pueda persistirlo
+// (a disco o a Cloudinary). Sustituye req.file.buffer por la versión ya
+// verificada/limpia y ajusta la extensión con la que se guardará.
+function processUploadedImage(req, res, next) {
+    if (!req.file) return next();
+    validateAndReencodeImage(req.file.buffer)
+        .then(({ buffer, ext }) => {
+            req.file.buffer = buffer;
+            req.file.safeExt = ext;
+            next();
+        })
+        .catch((err) => {
+            if (err instanceof InvalidImageError) {
+                return res.status(400).json({ error: err.message });
+            }
+            next(err);
+        });
+}
 
 // Sube un buffer a Cloudinary bajo retrohoops/<folder> y devuelve su URL segura.
 function uploadBufferToCloudinary(buffer, folder) {
@@ -218,12 +290,15 @@ function uploadBufferToCloudinary(buffer, folder) {
 }
 
 // Resuelve la URL final de la imagen recién subida en una petición ya procesada
-// por multer: sube a Cloudinary (modo remoto) o devuelve la ruta /uploads/ del
-// archivo ya escrito en disco (modo local). Devuelve null si no vino archivo.
+// por multer + processUploadedImage: sube a Cloudinary (modo remoto) o escribe
+// el buffer ya validado en disco (modo local). Devuelve null si no vino archivo.
 async function resolveUploadedImageUrl(req, folder) {
     if (!req.file) return null;
     if (useCloudinary) return uploadBufferToCloudinary(req.file.buffer, folder);
-    return `/uploads/${folder}/${req.file.filename}`;
+    const dir = folder === 'players' ? playerPhotosDir : teamLogosDir;
+    const filename = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}.${req.file.safeExt}`;
+    await fs.promises.writeFile(path.join(dir, filename), req.file.buffer);
+    return `/uploads/${folder}/${filename}`;
 }
 
 // Extrae el public_id (con su carpeta) de una URL de Cloudinary para poder borrar
@@ -1531,7 +1606,7 @@ app.post('/api/teams', authenticateToken, (req, res, next) => {
         if (err) return res.status(400).json({ error: err.message || 'Error al subir el logo' });
         next();
     });
-}, async (req, res) => {
+}, processUploadedImage, async (req, res) => {
     try {
         const { name } = req.body;
 
@@ -1585,7 +1660,7 @@ app.put('/api/teams/:id', authenticateToken, (req, res, next) => {
         if (err) return res.status(400).json({ error: err.message || 'Error al subir el logo' });
         next();
     });
-}, async (req, res) => {
+}, processUploadedImage, async (req, res) => {
     try {
         const { id } = req.params;
         const { name } = req.body;
@@ -1749,7 +1824,7 @@ app.post('/api/teams/:id/players', authenticateToken, (req, res, next) => {
         if (err) return res.status(400).json({ error: err.message || 'Error al subir la foto' });
         next();
     });
-}, async (req, res) => {
+}, processUploadedImage, async (req, res) => {
     try {
         const { id } = req.params;
         const { name, jerseyNumber, position, photoUrl } = req.body;
