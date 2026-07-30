@@ -292,23 +292,58 @@ app.get('/api/arcade-scores', async (req, res) => {
     }
 });
 
-app.post('/api/arcade-scores', optionalAuthenticateToken, async (req, res) => {
+// El minijuego es jugable sin cuenta (como cualquier marcador de recreativa),
+// así que este POST no puede exigir sesión. La única defensa posible es topar
+// cuántos registros puede escribir una misma IP en poco tiempo: sin esto,
+// un script podía inundar la tabla o fijar un récord falso con una sola
+// petición manual.
+const arcadeScoreLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: 20,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Demasiados envíos de puntaje. Probá de nuevo en unos minutos.' }
+});
+
+app.post('/api/arcade-scores', arcadeScoreLimiter, optionalAuthenticateToken, async (req, res) => {
     try {
         const { initials, score } = req.body;
-        
+
         if (!initials || score === undefined) {
             return res.status(400).json({ error: 'Faltan datos del récord' });
         }
 
+        const parsedScore = parseInt(score, 10);
+        // Techo heurístico, no una prueba de trampa perfecta: cada canasta vale 2 o 3
+        // puntos y la dificultad escala cada 3 puntos hasta que el aro oscila con
+        // amplitud y velocidad casi máximas (ver difficultyLevel() en index.js del
+        // front). Pasar de 300 sin fallar ni una vez exige más de 100 canastas
+        // seguidas contra eso: fuera del alcance de una partida humana real en este
+        // juego. Antes no había ningún tope y se llegó a registrar un 9999 de prueba.
+        const MAX_PLAUSIBLE_SCORE = 300;
+        if (!Number.isInteger(parsedScore) || parsedScore <= 0 || parsedScore > MAX_PLAUSIBLE_SCORE) {
+            return res.status(400).json({
+                error: `Puntaje inválido: debe ser un entero entre 1 y ${MAX_PLAUSIBLE_SCORE}.`
+            });
+        }
+
+        // Mismo criterio que ya aplica el propio input del modal (maxlength="3",
+        // solo alfanumérico): se repite aquí porque el frontend no es una barrera de
+        // seguridad, cualquiera puede mandar el POST directo sin pasar por el modal.
+        const cleanInitials = String(initials).replace(/[^A-Za-z0-9]/g, '').slice(0, 3).toUpperCase();
+        if (!cleanInitials) {
+            return res.status(400).json({ error: 'Las iniciales deben tener al menos un carácter alfanumérico.' });
+        }
+
         const newScore = await prisma.arcadeScore.create({
             data: {
-                initials: String(initials).substring(0, 7).toUpperCase(),
-                score: parseInt(score, 10),
+                initials: cleanInitials,
+                score: parsedScore,
                 // Si el jugador ya inició sesión, relacionamos su récord
-                userId: req.user ? req.user.id : null 
+                userId: req.user ? req.user.id : null
             }
         });
-        
+
         res.status(201).json(newScore);
     } catch (error) {
         console.error('Error guardando récord arcade:', error);

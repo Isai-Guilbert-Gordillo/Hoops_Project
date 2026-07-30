@@ -736,8 +736,11 @@
             const modalCancel = document.getElementById('modal-cancel');
 
             // Sin modal en el DOM no se pierde el récord: se manda con lo que haya.
+            // 'AAA' y no 'ANON': el servidor y el propio input limitan a 3 caracteres
+            // (maxlength="3"), así que un relleno de 4 quedaría truncado en silencio
+            // al guardar.
             if (!modal || !modalInitials || !modalSave || !modalCancel) {
-                const fallback = (localStorage.getItem('kphoops_initials') || 'ANON').toUpperCase();
+                const fallback = (localStorage.getItem('kphoops_initials') || 'AAA').toUpperCase();
                 postArcadeScore(fallback, finalScore);
                 return;
             }
@@ -768,7 +771,7 @@
             const handleSave = () => {
                 // Solo letras y números, 3 caracteres, estilo marcador arcade.
                 const raw = modalInitials.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase();
-                const initials = raw || 'ANON';
+                const initials = raw || 'AAA';
                 localStorage.setItem('kphoops_initials', initials);
                 close();
                 postArcadeScore(initials, finalScore);
