@@ -802,6 +802,9 @@ app.get('/api/users/me/teams', authenticateToken, async (req, res) => {
     try {
         const teams = await prisma.team.findMany({
             where: { captainId: req.user.id },
+            // El nº de jugadores permite avisar en el desplegable de inscripción
+            // de qué franquicias aún no llegan al mínimo de 3.
+            include: { _count: { select: { players: true } } },
             orderBy: { createdAt: 'desc' }
         });
         res.status(200).json(teams);
@@ -857,13 +860,17 @@ app.post('/api/tournaments/:id/enroll', authenticateToken, async (req, res) => {
         const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
         if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado.' });
 
-        // Validación 1: puede inscribir el CAPITÁN del equipo, el ORGANIZADOR dueño
-        // del torneo, o un ADMIN. Así el organizador gestiona su propia liga sin
-        // depender de que cada capitán se auto-inscriba.
+        // Validación 1: solo el CAPITÁN de la franquicia (o un ADMIN) puede
+        // inscribirla. Antes también podía el organizador del torneo, y eso le
+        // permitía meter en su liga la franquicia de cualquier desconocido sin
+        // pedirle permiso. El organizador sigue armando su liga sin depender de
+        // nadie: crea sus propias franquicias (tiene cupo para 64) o reparte el
+        // enlace de invitación para que cada capitán se inscriba.
         const isCaptain = team.captainId === req.user.id;
-        const isOrganizer = tournament.organizerId === req.user.id;
-        if (!isCaptain && !isOrganizer && !(await userIsAdmin(req.user.id))) {
-            return res.status(403).json({ error: 'Solo el capitán del equipo o el organizador del torneo pueden inscribirlo.' });
+        if (!isCaptain && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({
+                error: 'Solo el capitán de esa franquicia puede inscribirla. Si la liga es tuya, comparte el enlace de invitación con su capitán.'
+            });
         }
 
         // Validación 2: Equipo tiene ≥3 jugadores
@@ -2377,9 +2384,36 @@ app.put('/api/enrollments/:id/payment', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: 'No autorizado para editar inscripciones de este torneo' });
         }
 
+        // Antes esto era `parseInt(amountPaid) || 0`: aceptaba cualquier cifra sin
+        // rechistar (se registraron $9999 de una cuota de $500) y un negativo se
+        // guardaba tal cual. La cuota es el tope: si hay que cobrar de más, se
+        // cambia la cuota del torneo, no se falsea el pago de una franquicia.
+        const fee = enrollment.tournament.inscriptionFee || 0;
+        const parsedAmount = parseInt(amountPaid, 10);
+
+        if (!Number.isInteger(parsedAmount) || parsedAmount < 0) {
+            return res.status(400).json({ error: 'El monto pagado debe ser un número igual o mayor que 0.' });
+        }
+        if (parsedAmount > fee) {
+            return res.status(400).json({
+                error: `La cuota de inscripción es $${fee}: no puedes registrar un pago mayor.`
+            });
+        }
+
+        // paymentStatus existía en el esquema pero nadie lo escribía nunca, así que
+        // todas las inscripciones se quedaban en PENDING para siempre aunque
+        // estuvieran pagadas. Ahora se deriva del monto, junto con la fecha de pago.
+        let paymentStatus = 'PENDING';
+        if (fee > 0 && parsedAmount >= fee) paymentStatus = 'PAID';
+        else if (parsedAmount > 0) paymentStatus = 'PARTIAL';
+
         const updated = await prisma.tournamentEnrollment.update({
             where: { id: enrollmentId },
-            data: { amountPaid: parseInt(amountPaid, 10) || 0 }
+            data: {
+                amountPaid: parsedAmount,
+                paymentStatus,
+                paymentDate: paymentStatus === 'PAID' ? (enrollment.paymentDate || new Date()) : null
+            }
         });
 
         res.status(200).json(updated);

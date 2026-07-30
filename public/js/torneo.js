@@ -342,6 +342,9 @@ document.addEventListener('click', (e) => {
 
                         const card = document.createElement('div');
                         card.className = 'enrolled-card';
+                        // Permite repintar solo esta tarjeta al actualizar su pago,
+                        // sin recargar la página entera.
+                        card.dataset.enrollmentId = enrollment.id;
 
                         const initial = escapeHtml((team.name || '?').trim().charAt(0).toUpperCase());
                         const logoHtml = team.logoUrl
@@ -378,9 +381,12 @@ document.addEventListener('click', (e) => {
 
                         let organizerControls = '';
                         if (isOrganizer && cost > 0) {
+                            // El campo llega con lo ya registrado (no vacío): así se ve de
+                            // dónde parte el ajuste. El max refleja la cuota, que es el
+                            // tope que aplica el backend.
                             organizerControls = `
                                 <div class="enr-controls">
-                                    <input type="number" id="pay-input-${enrollment.id}" class="enr-input" placeholder="Monto" min="0">
+                                    <input type="number" id="pay-input-${enrollment.id}" class="enr-input" placeholder="Monto" min="0" max="${cost}" value="${paid}">
                                     <button class="enr-btn btn-update-payment" data-enrollment-id="${enrollment.id}">Actualizar pago</button>
                                 </div>`;
                         }
@@ -414,16 +420,46 @@ document.addEventListener('click', (e) => {
                     // Almacenar en window array temporal para filtrar inscripciones luego
                     window.enrolledTeamsIds = enrolledTeamsIds;
                     
+                    // Repinta el estado de cobro de UNA tarjeta con el importe que
+                    // acaba de confirmar el servidor. Antes esto se resolvía con un
+                    // window.location.reload(): la tarjeta seguía mostrando el importe
+                    // viejo hasta que la página entera se recargaba, y el organizador
+                    // perdía el scroll en cada cobro (ocho veces en una liga de ocho).
+                    const paintPayment = (enrollmentId, paidNow, cost) => {
+                        const card = document.querySelector(`.enrolled-card[data-enrollment-id="${enrollmentId}"]`);
+                        if (!card) return;
+
+                        const pendingNow = cost - paidNow;
+                        const settled = cost > 0 && pendingNow <= 0;
+
+                        const badge = card.querySelector('.enr-badge');
+                        if (badge) {
+                            badge.className = `enr-badge ${settled ? 'is-paid' : 'is-debt'}`;
+                            badge.textContent = settled ? 'Pagado' : `Debe $${pendingNow}`;
+                        }
+
+                        const bar = card.querySelector('.enr-pay__bar span');
+                        if (bar) bar.style.width = (cost > 0 ? Math.min(100, Math.round((paidNow / cost) * 100)) : 0) + '%';
+
+                        const paidLabel = card.querySelector('.enr-pay__summary .is-ok');
+                        if (paidLabel) paidLabel.textContent = `$${paidNow}`;
+
+                        const input = card.querySelector('.enr-input');
+                        if (input) input.value = paidNow;
+                    };
+
                     // Manejar clics de Actualizar Pago
                     document.querySelectorAll('.btn-update-payment').forEach(btn => {
                         btn.addEventListener('click', async (e) => {
                             e.preventDefault();
-                            const enrollmentId = e.target.getAttribute('data-enrollment-id');
+                            const button = e.currentTarget;
+                            const enrollmentId = button.getAttribute('data-enrollment-id');
                             const input = document.getElementById(`pay-input-${enrollmentId}`);
-                            if (!input.value || input.value === "") {
+                            if (!input || input.value.trim() === '') {
                                 return showToast('Ingresa un monto válido', 'error');
                             }
-                            
+
+                            button.disabled = true;
                             try {
                                 const res = await fetch(`/api/enrollments/${enrollmentId}/payment`, {
                                     method: 'PUT',
@@ -433,16 +469,18 @@ document.addEventListener('click', (e) => {
                                     },
                                     body: JSON.stringify({ amountPaid: input.value })
                                 });
-                                
+
+                                const data = await res.json().catch(() => ({}));
                                 if (res.ok) {
                                     showToast('Pago actualizado correctamente', 'success');
-                                    setTimeout(() => window.location.reload(), 1000);
+                                    paintPayment(enrollmentId, data.amountPaid, tournament.inscriptionFee || 0);
                                 } else {
-                                    const data = await res.json();
                                     showToast(data.error || 'Error al actualizar', 'error');
                                 }
                             } catch (err) {
                                 showToast('Error de red', 'error');
+                            } finally {
+                                button.disabled = false;
                             }
                         });
                     });
@@ -1320,29 +1358,30 @@ document.addEventListener('click', (e) => {
                 return; // Si no hay torneo, paramos
             }
 
-            // Sección de inscripción. Dos modos:
-            //  • Capitán (no organizador): elige entre SUS franquicias no inscritas.
-            //  • Organizador dueño (o admin): puede inscribir CUALQUIER franquicia
-            //    registrada que aún no esté en el torneo, para armar su liga.
+            // Sección de inscripción: cada quien inscribe SUS propias franquicias.
+            // Antes, al organizador se le ofrecía el catálogo completo (/api/teams),
+            // así que podía meter en su liga la franquicia de un desconocido sin
+            // pedirle permiso. Ahora el backend solo acepta al capitán, y este
+            // desplegable ofrece lo mismo que el backend permite: si mostrara
+            // equipos ajenos, elegir uno terminaría en un 403 a ciegas.
+            // El organizador arma su liga con sus propias franquicias (tiene cupo
+            // para 64) o repartiendo el enlace de invitación.
             if (token) {
                 try {
                     const selectElement = document.getElementById('franchise-select');
                     const sectionEl = document.getElementById('enrollment-section');
                     const submitBtn = document.querySelector('#enrollForm button[type="submit"]');
 
-                    let candidateTeams = [];
+                    const teamsRes = await fetch('/api/users/me/teams', {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    });
+                    const candidateTeams = teamsRes.ok ? await teamsRes.json() : [];
+
                     if (isOrganizer) {
-                        const allRes = await fetch('/api/teams', { credentials: 'include' });
-                        candidateTeams = allRes.ok ? await allRes.json() : [];
                         const heading = sectionEl.querySelector('h3');
                         if (heading) heading.textContent = 'Inscribir una Franquicia al Torneo';
                         const defaultOpt = selectElement.querySelector('option[value=""]');
                         if (defaultOpt) defaultOpt.text = 'Selecciona una franquicia...';
-                    } else {
-                        const teamsRes = await fetch('/api/users/me/teams', {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        });
-                        candidateTeams = teamsRes.ok ? await teamsRes.json() : [];
                     }
 
                     sectionEl.style.display = 'block';
@@ -1359,37 +1398,27 @@ document.addEventListener('click', (e) => {
                         const opt = document.createElement('option');
                         opt.value = t.id;
 
-                        if (isOrganizer) {
-                            // Etiqueta rica: capitán + nº de jugadores. Es lo que permite
-                            // distinguir dos equipos homónimos de capitanes distintos.
-                            const cap = t.captain
-                                ? (window.capitalizeName
-                                    ? window.capitalizeName(`${t.captain.firstName} ${t.captain.lastName}`)
-                                    : `${t.captain.firstName} ${t.captain.lastName}`)
-                                : 'Sin capitán';
-                            const nPlayers = t._count?.players ?? 0;
-                            const eligible = nPlayers >= 3;
-                            opt.text = `${t.name} — Cap. ${cap} · ${nPlayers} jug.${eligible ? '' : ' (incompleto)'}`;
-                            // Los equipos con <3 jugadores no pueden inscribirse (regla del
-                            // backend): se muestran deshabilitados para evitar el error a ciegas.
-                            if (!eligible) opt.disabled = true;
-                            else hasEligibleTeam = true;
-                        } else {
-                            opt.text = t.name;
-                            hasEligibleTeam = true;
-                        }
+                        // Ya no hace falta el nombre del capitán (todas son propias),
+                        // pero sí el plantel: el backend exige 3 jugadores mínimo, así
+                        // que las incompletas se marcan y se deshabilitan en vez de
+                        // dejar que el organizador choque con el error.
+                        const nPlayers = t._count?.players ?? 0;
+                        const eligible = nPlayers >= 3;
+                        opt.text = `${t.name} · ${nPlayers} jug.${eligible ? '' : ' (incompleto)'}`;
+                        if (!eligible) opt.disabled = true;
+                        else hasEligibleTeam = true;
 
                         selectElement.appendChild(opt);
                     });
 
-                    // Buscador para el organizador: filtra el dropdown por nombre de
-                    // equipo o capitán (imprescindible cuando hay decenas de equipos).
+                    // Buscador: un organizador puede tener hasta 64 franquicias propias,
+                    // así que filtrar por nombre sigue siendo necesario.
                     if (isOrganizer && selectElement.options.length > 1) {
                         const search = document.createElement('input');
                         search.type = 'search';
                         search.id = 'franchise-search';
                         search.className = 'enroll-search';
-                        search.placeholder = '🔍 Filtrar por equipo o capitán…';
+                        search.placeholder = '🔍 Filtrar por nombre de franquicia…';
                         search.autocomplete = 'off';
                         selectElement.parentElement.insertBefore(search, selectElement);
                         search.addEventListener('input', () => {
@@ -1410,7 +1439,7 @@ document.addEventListener('click', (e) => {
                         const opt = document.createElement('option');
                         opt.value = "";
                         opt.text = isOrganizer
-                            ? "No hay franquicias disponibles para inscribir"
+                            ? "No tienes franquicias listas para inscribir"
                             : "No tienes franquicias disponibles";
                         opt.disabled = true;
                         opt.selected = true;
