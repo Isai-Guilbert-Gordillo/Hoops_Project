@@ -69,10 +69,8 @@
             });
         }
         let firstShot = false, muted = false, resetScheduled = false;
-        // Récord (máximo histórico) persistido en el navegador, y total de canastas
-        // para el desbloqueo del registro (ese contador NO se reinicia al fallar).
         let record = parseInt(localStorage.getItem('kphoops_hoop_record') || '0', 10) || 0;
-        let totalMade = 0;
+
         // Toques puramente visuales (no tocan la física del tiro):
         let ballSpin = 0;   // ángulo acumulado del giro del balón en vuelo
         let netSway = 0;    // la red "vibra" un instante al anotar
@@ -100,6 +98,24 @@
                 flickerSpeed: 0.02 + Math.random() * 0.03
             });
         }
+
+        // ---- Optimización: gradientes cacheados (crear una vez, reusar) ----
+        const bgGrad = ctx.createLinearGradient(0, 0, 0, H);
+        bgGrad.addColorStop(0, '#150f24');
+        bgGrad.addColorStop(0.55, '#1b1330');
+        bgGrad.addColorStop(0.85, '#2a1240');
+        bgGrad.addColorStop(1, '#170a20');
+        const floorGrad = ctx.createLinearGradient(0, floorY - 34, 0, floorY);
+        floorGrad.addColorStop(0, 'rgba(0,240,255,0)');
+        floorGrad.addColorStop(1, 'rgba(0,240,255,0.07)');
+        const ballGrad = ctx.createRadialGradient(-4, -5, 2, 0, 0, ballR);
+        ballGrad.addColorStop(0, C.orange2);
+        ballGrad.addColorStop(1, C.orange);
+
+        // ---- Temporizador para físicas a 60 fps independientes del refresco ----
+        let lastTime = 0;
+        const STEP_MS = 1000 / 60;
+        let accumulator = 0;
 
         const g = 0.35, K = 0.14, MAXV = 15, MINV = 3;
 
@@ -202,14 +218,13 @@
         }
         function onScore(is3) {
             const pts = is3 ? 3 : 2;
-            score += pts; streak++; totalMade++;
+            score += pts; streak++;
             scoreEl.textContent = score;
             if (score > record) {
                 record = score;
                 try { localStorage.setItem('kphoops_hoop_record', String(record)); } catch (e) {}
             }
             updateStreak();
-            window.dispatchEvent(new CustomEvent('hoops:score', { detail: { score: score, total: totalMade } }));
             // "En racha" a partir de 3 canastas seguidas. OJO: esto vivía dentro del
             // if (!reduceMotion) de abajo y se leía fuera, así que cada canasta
             // lanzaba un ReferenceError que mataba el requestAnimationFrame: el
@@ -226,7 +241,7 @@
                 shake = Math.min((is3 ? 12 : 6) * streakMultiplier, 22);
 
                 const palette = is3 ? [C.orange, C.orange2, C.gold] : [C.cyan, C.pink];
-                const burst = is3 ? 26 : 18;
+                const burst = Math.min(is3 ? 26 : 18, 60 - particles.length);
                 for (let i = 0; i < burst; i++) {
                     const a = Math.random() * Math.PI * 2, sp = 1 + Math.random() * (is3 ? 4 : 3);
                     particles.push({
@@ -319,7 +334,7 @@
         function drawHoop() {
             // Tablero: vidrio con leve tinte + brillo diagonal (reflejo)
             ctx.save();
-            ctx.shadowColor = C.cyan; ctx.shadowBlur = reduceMotion ? 0 : 8;
+            ctx.shadowColor = C.cyan; ctx.shadowBlur = reduceMotion ? 0 : 4;
             const bbGrd = ctx.createLinearGradient(backboardX, bbTop, backboardX + 12, bbBottom);
             bbGrd.addColorStop(0, 'rgba(0,240,255,0.18)');
             bbGrd.addColorStop(0.45, 'rgba(10,7,20,0.92)');
@@ -336,7 +351,7 @@
             // Aro: brilla más fuerte un instante al anotar
             ctx.save();
             const flash = rimFlash > 0 ? 1 : 0;
-            ctx.shadowColor = C.orange; ctx.shadowBlur = reduceMotion ? 0 : (flash ? 16 : 6);
+            ctx.shadowColor = C.orange; ctx.shadowBlur = reduceMotion ? 0 : (flash ? 8 : 3);
             ctx.strokeStyle = flash ? C.orange2 : C.orange; ctx.lineWidth = flash ? 5 : 3.5;
             ctx.beginPath(); ctx.moveTo(rimFront, rimY); ctx.lineTo(rimBack, rimY); ctx.stroke();
             ctx.fillStyle = C.orange; circle(rimFront, rimY, 3); ctx.fill();
@@ -381,10 +396,8 @@
             ctx.translate(x, y);
             ctx.scale(stretchX, stretchY);
             
-            ctx.shadowColor = C.orange; ctx.shadowBlur = reduceMotion ? 0 : 6;
-            const grd = ctx.createRadialGradient(-4, -5, 2, 0, 0, ballR);
-            grd.addColorStop(0, C.orange2); grd.addColorStop(1, C.orange);
-            ctx.fillStyle = grd; circle(0, 0, ballR); ctx.fill();
+            ctx.shadowColor = C.orange; ctx.shadowBlur = reduceMotion ? 0 : 3;
+            ctx.fillStyle = ballGrad; circle(0, 0, ballR); ctx.fill();
             ctx.shadowBlur = 0;
             ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 1.2;
             circle(0, 0, ballR); ctx.stroke();
@@ -454,12 +467,7 @@
             }
 
             // Fondo: atmósfera synthwave (violeta profundo → resplandor cálido abajo)
-            const grd = ctx.createLinearGradient(0, 0, 0, H);
-            grd.addColorStop(0, '#150f24');
-            grd.addColorStop(0.55, '#1b1330');
-            grd.addColorStop(0.85, '#2a1240');
-            grd.addColorStop(1, '#170a20');
-            ctx.fillStyle = grd; ctx.fillRect(0, 0, W, H);
+            ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
             
             // Dibujar ambiente (público y luces)
             drawEnvironment();
@@ -473,10 +481,7 @@
             ctx.fillStyle = sunGrd; circle(sunX, sunY, sunR); ctx.fill();
 
             // Resplandor de "luz de cancha" subiendo desde el piso
-            const floorGlow = ctx.createLinearGradient(0, floorY - 34, 0, floorY);
-            floorGlow.addColorStop(0, 'rgba(0,240,255,0)');
-            floorGlow.addColorStop(1, 'rgba(0,240,255,0.07)');
-            ctx.fillStyle = floorGlow; ctx.fillRect(0, floorY - 34, W, 34);
+            ctx.fillStyle = floorGrad; ctx.fillRect(0, floorY - 34, W, 34);
 
             ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 1;
             ctx.beginPath(); ctx.moveTo(0, floorY); ctx.lineTo(W, floorY); ctx.stroke();
@@ -533,7 +538,7 @@
             for (const pt of particles) {
                 ctx.globalAlpha = Math.max(0, pt.life / 45);
                 ctx.fillStyle = pt.color;
-                ctx.shadowColor = pt.color; ctx.shadowBlur = reduceMotion ? 0 : 5;
+                ctx.shadowColor = pt.color; ctx.shadowBlur = reduceMotion ? 0 : 3;
                 if (pt.shape === 'spark') {
                     ctx.save();
                     ctx.translate(pt.x, pt.y);
@@ -558,7 +563,7 @@
                 // Los grandes entran con un pequeño golpe de escala.
                 const pop = ft.big && !reduceMotion ? 1 + Math.max(0, (t - 0.82)) * 1.6 : 1;
                 ctx.font = `bold ${Math.round((ft.big ? 20 : 15) * pop)}px 'Outfit', sans-serif`;
-                ctx.shadowColor = ft.color; ctx.shadowBlur = reduceMotion ? 0 : 12;
+                ctx.shadowColor = ft.color; ctx.shadowBlur = reduceMotion ? 0 : 6;
                 ctx.fillText(ft.txt, ft.x, ft.y);
             }
             ctx.shadowBlur = 0; ctx.textAlign = 'left'; ctx.globalAlpha = 1;
@@ -588,21 +593,28 @@
 
         // ---- Loop con pausa por visibilidad ----
         let raf = null, running = false;
-        function frame() {
-            updateHoop();
-            step();
+        function frame(timestamp) {
+            // Físicas a paso fijo (60 fps) independientes del refresco de pantalla
+            if (!lastTime) lastTime = timestamp;
+            const elapsed = Math.min(timestamp - lastTime, 100);
+            lastTime = timestamp;
+            accumulator += elapsed;
+            while (accumulator >= STEP_MS) {
+                updateHoop();
+                step();
+                accumulator -= STEP_MS;
+            }
+
+            // Efectos visuales se actualizan en cada frame
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
-                p.vy += 0.12; // Gravedad
+                p.vy += 0.12;
                 p.x += p.vx;
                 p.y += p.vy;
 
-                // Rebote en el suelo de la cancha, perdiendo energía en cada bote.
                 if (p.y >= floorY) {
                     p.y = floorY;
-                    p.vx *= 0.7;           // fricción horizontal
-                    // Por debajo de cierta energía deja de botar y se queda
-                    // apagándose en el piso, en vez de vibrar indefinidamente.
+                    p.vx *= 0.7;
                     p.vy = Math.abs(p.vy) < 0.6 ? 0 : p.vy * -0.5;
                 }
 
@@ -614,13 +626,20 @@
             for (let i = floatTexts.length - 1; i >= 0; i--) {
                 const ft = floatTexts[i];
                 ft.y += ft.vy;
-                ft.vy *= 0.985; // sube frenando, como un globo
+                ft.vy *= 0.985;
                 if (--ft.life <= 0) floatTexts.splice(i, 1);
             }
             draw();
             raf = requestAnimationFrame(frame);
         }
-        function start() { if (running) return; running = true; raf = requestAnimationFrame(frame); }
+        function start() {
+            if (running) return;
+            if (state === 'aiming') { state = 'ready'; aimStart = aimNow = null; }
+            running = true;
+            lastTime = 0;
+            accumulator = 0;
+            raf = requestAnimationFrame(frame);
+        }
         function stop() { running = false; if (raf) cancelAnimationFrame(raf); raf = null; }
         
         // ---- SISTEMA DE RÉCORDS (LEADERBOARD) ----
@@ -808,69 +827,16 @@
             ents.forEach((en) => { if (en.isIntersecting && !document.hidden) start(); else stop(); });
         }, { threshold: 0.15 });
         io.observe(canvas);
-        document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) { stop(); return; }
+            if (root) start();
+        });
+        window.addEventListener('pageshow', (e) => {
+            if (e.persisted && root) start();
+        });
     })();
 
 // ---- bloque inline #2 ----
-    (function () {
-        const GOAL = 3;
-        const btn = document.getElementById('cta-register');
-        const txt = document.getElementById('cta-text');
-        const lock = document.getElementById('cta-lock');
-        const note = document.getElementById('cta-note');
-        const code = document.getElementById('cta-code');
-        if (!btn) return;
-        let unlocked = false;
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-        // Desbloqueo: única recompensa real de la página (registro + código),
-        // hasta ahora un simple swap de estado. El pulso dorado, la salida
-        // del candado y la aparición del código son un solo momento autoral.
-        function unlock() {
-            if (unlocked) return;
-            unlocked = true;
-            btn.classList.remove('is-locked');
-            btn.setAttribute('aria-disabled', 'false');
-            btn.href = '/registro.html';
-            txt.textContent = 'Registrarme ahora';
-
-            if (lock) {
-                if (reduceMotion) {
-                    lock.remove();
-                } else {
-                    lock.classList.add('is-leaving');
-                    lock.addEventListener('animationend', () => lock.remove(), { once: true });
-                }
-            }
-
-            btn.classList.add('is-unlocking');
-            btn.addEventListener('animationend', function onBtnAnim(e) {
-                if (e.target !== btn) return; // animationend burbujea desde el candado (hijo, animación más corta); ignorar
-                btn.classList.remove('is-unlocking');
-                btn.removeEventListener('animationend', onBtnAnim);
-            });
-
-            note.classList.add('is-success');
-            note.innerHTML = '<span class="ok">✓</span>¡Canasta! <b>Registro desbloqueado.</b>';
-            const c = 'RH-' + Math.random().toString(36).slice(2, 6).toUpperCase();
-            code.textContent = 'Tu código: ' + c;
-            code.style.display = 'inline-block';
-            code.classList.add('is-revealed');
-        }
-
-        window.addEventListener('hoops:score', (e) => {
-            // Se usa el TOTAL de canastas (no el marcador, que se reinicia al
-            // fallar) para desbloquear: basta con hacer 3 canastas en total,
-            // aunque falles entre medias.
-            const total = (e.detail && e.detail.total) || 0;
-            if (total >= GOAL) { unlock(); return; }
-            note.innerHTML = 'Vas <b>' + total + '/' + GOAL + '</b> — encesta en la cancha para desbloquear tu registro.';
-        });
-
-        btn.addEventListener('click', (e) => { if (btn.classList.contains('is-locked')) e.preventDefault(); });
-    })();
-
-// ---- bloque inline #3 ----
     (function () {
         const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 

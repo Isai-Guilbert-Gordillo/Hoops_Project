@@ -369,9 +369,11 @@
         
         .info-box {
             background: rgba(0, 200, 255, 0.1);
-            border-left: 4px solid var(--cyan-accent);
+            /* Panel de aviso con contorno neón completo en vez de la barra
+               lateral gruesa (patrón delator de UI autogenerada). */
+            border: 1px solid var(--cyan-glow);
             padding: 1rem;
-            border-radius: 4px;
+            border-radius: 8px;
             margin: 1rem 0;
             color: rgba(224, 231, 255, 0.9);
             font-size: 0.9rem;

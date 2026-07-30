@@ -147,66 +147,6 @@
         max-width: 46ch; margin: 1.4rem 0 0;
     }
 
-    /* CTA gamificado del hero (acción = naranja al desbloquear) */
-    .hero-cta { margin-top: 2rem; display: flex; flex-direction: column; align-items: flex-start; gap: 0.8rem; }
-    .hero-unlock-btn {
-        display: inline-flex; align-items: center; gap: 0.65rem;
-        font-family: var(--font-data); font-size: 0.82rem; font-weight: 700;
-        letter-spacing: 0.06em; text-transform: uppercase;
-        padding: 0.95rem 1.4rem; border-radius: var(--radius-sm);
-        text-decoration: none; border: 1px solid transparent;
-        transition: transform 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s, color 0.2s;
-    }
-    .hero-unlock-btn .lock-ico { width: 15px; height: 15px; flex-shrink: 0; }
-    .hero-unlock-btn.is-locked {
-        background: color-mix(in srgb, var(--line) 30%, transparent);
-        border-color: var(--line); color: var(--text-dim); cursor: not-allowed;
-    }
-    .hero-unlock-btn:not(.is-locked) {
-        background: var(--ball); color: var(--ink); border-color: var(--ball);
-        box-shadow: 0 0 18px var(--ball-glow);
-    }
-    .hero-unlock-btn:not(.is-locked):hover { transform: translateY(-2px); box-shadow: 0 8px 26px var(--ball-glow); }
-
-    /* ============================================================
-       (7) MOVIMIENTO: desbloqueo del CTA — el único momento autoral
-       fuera del canvas. Anotar 3 canastas culmina en un premio real
-       (registro + código); antes era un simple cambio de estado sin
-       aviso. El pulso usa --buzzer (oro = logro, mismo tono que el
-       propio minijuego en rachas) y decae al naranja de acción ya
-       establecido, en vez de introducir un color nuevo.
-       ============================================================ */
-    @keyframes unlock-burst {
-        0%   { box-shadow: 0 0 0 var(--buzzer-glow); }
-        35%  { box-shadow: 0 0 34px var(--buzzer-glow); }
-        100% { box-shadow: 0 8px 26px var(--ball-glow); }
-    }
-    .hero-unlock-btn.is-unlocking { animation: unlock-burst 0.7s var(--ease) both; }
-
-    @keyframes lock-shed { to { opacity: 0; transform: scale(0.5) rotate(-16deg); } }
-    .hero-unlock-btn .lock-ico.is-leaving { animation: lock-shed 0.26s var(--ease) both; }
-
-    @keyframes note-flash-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-    .hero-progress.is-success { animation: note-flash-in 0.4s var(--ease) both; }
-
-    @keyframes code-pop-in { from { opacity: 0; transform: scale(0.85); } to { opacity: 1; transform: scale(1); } }
-    .hero-code.is-revealed { animation: code-pop-in 0.45s var(--ease) both; animation-delay: 0.15s; }
-
-    .hero-progress { font-family: var(--font-data); color: var(--text-dim); font-size: 0.85rem; max-width: 42ch; line-height: 1.6; }
-    .hero-progress b { color: var(--board); font-weight: 700; }
-    .hero-progress.is-success { color: var(--text); }
-    .hero-progress .ok {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 18px; height: 18px; margin-right: 0.4rem;
-        border: 1px solid var(--buzzer); border-radius: 50%;
-        color: var(--buzzer); font-size: 0.7rem; font-weight: 700; vertical-align: -3px;
-    }
-    .hero-code {
-        display: none; font-family: var(--font-data); font-size: 0.82rem;
-        color: var(--text); border: 1px dashed var(--board); border-radius: var(--radius-sm);
-        padding: 0.5rem 0.8rem; letter-spacing: 1.5px; margin-top: 0.4rem;
-    }
-
     /* ============================================================
        PANEL ARCADE (elemento firma) — cabina jugable, borde + luz.
        (6) MOVIMIENTO: scanlines CRT + parpadeo, SOLO dentro de la pantalla.
@@ -553,13 +493,8 @@
         .rise { opacity: 1; transform: none; transition: none; }
         .landing .arcade-stage::after { animation: none; }
         .landing .ag-hint { animation: none; }
-        .hero-unlock-btn:not(.is-locked):hover,
         .rh-card:hover, .btn-action:hover,
         .price-cta--ghost:hover, .price-cta--solid:hover { transform: none; }
-        .hero-unlock-btn.is-unlocking,
-        .hero-unlock-btn .lock-ico.is-leaving,
-        .hero-progress.is-success,
-        .hero-code.is-revealed { animation: none; }
     }
 
     /* ============================================================

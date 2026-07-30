@@ -7,3 +7,20 @@
         .role-badge-player { background: rgba(167, 159, 194, 0.1); color: var(--text-muted); border: 1px solid var(--text-muted); }
         .role-actions { display: flex; gap: 0.5rem; justify-content: flex-end; flex-wrap: wrap; }
         #access-denied { display: none; text-align: center; padding: 4rem 1.5rem; color: var(--text-muted); }
+
+/* En móvil la tabla de usuarios se aprieta: reducimos el relleno de las celdas,
+   bajamos el email de tamaño y dejamos que los botones de rol ocupen todo el
+   ancho para que sigan siendo cómodos de pulsar. */
+@media (max-width: 640px) {
+    .kp-table th,
+    .kp-table td { padding: 0.6rem 0.5rem; }
+    .user-row-email { font-size: 0.75rem; word-break: break-word; }
+    .role-actions { gap: 0.4rem; }
+    .role-actions .btn,
+    .role-actions button { flex: 1 1 auto; }
+}
+
+@media (max-width: 420px) {
+    #access-denied { padding: 3rem 1rem; }
+    .role-actions { flex-direction: column; align-items: stretch; }
+}

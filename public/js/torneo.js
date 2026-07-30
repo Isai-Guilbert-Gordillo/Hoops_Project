@@ -281,7 +281,13 @@ document.addEventListener('click', (e) => {
             credentials: 'include'
         });
 
-        if (!response.ok) throw new Error('Torneo no encontrado o error en servidor');
+        if (!response.ok) {
+            // 404: la liga no existe (o fue borrada). Damos un mensaje claro en vez
+            // de dejar la página en blanco o mostrar un error técnico genérico.
+            throw new Error(response.status === 404
+                ? 'Esta liga ya no existe. Es posible que su organizador la haya eliminado.'
+                : 'No pudimos cargar la liga. Vuelve a intentarlo en un momento.');
+        }
 
         const tournament = await response.json();
 
@@ -353,7 +359,7 @@ document.addEventListener('click', (e) => {
                                 : `<span class="enr-badge is-debt">Debe $${pending}</span>`;
                             paymentInfo = `
                                 <div class="enr-pay">
-                                    <div class="enr-pay__bar"><span style="width:${paidPct}%"></span></div>
+                                    <div class="enr-pay__bar"><span style="transform:scaleX(${paidPct / 100})"></span></div>
                                     <div class="enr-pay__summary">
                                         <span><b class="is-ok">$${paid}</b> pagado</span>
                                         <span>de <b>$${cost}</b></span>
@@ -421,7 +427,10 @@ document.addEventListener('click', (e) => {
                         }
 
                         const bar = card.querySelector('.enr-pay__bar span');
-                        if (bar) bar.style.width = (cost > 0 ? Math.min(100, Math.round((paidNow / cost) * 100)) : 0) + '%';
+                        if (bar) {
+                            const pct = cost > 0 ? Math.min(100, Math.round((paidNow / cost) * 100)) : 0;
+                            bar.style.transform = `scaleX(${pct / 100})`;
+                        }
 
                         const paidLabel = card.querySelector('.enr-pay__summary .is-ok');
                         if (paidLabel) paidLabel.textContent = `$${paidNow}`;
@@ -485,14 +494,16 @@ document.addEventListener('click', (e) => {
                         if (standings && standings.length > 0) {
                             document.getElementById('standings-header').style.display = 'block';
                             document.getElementById('standings-container').style.display = 'block';
-                            
+                            document.getElementById('no-standings-msg').style.display = 'none';
+
                             const tbody = document.getElementById('standings-body');
                             standings.forEach((s, index) => {
                                 const tr = document.createElement('tr');
                                 
+                                const stInitial = escapeHtml((s.teamName || '?').trim().charAt(0).toUpperCase() || '?');
                                 let logoHtml = s.logoUrl
                                     ? `<img src="${escapeHtml(s.logoUrl)}" alt="Logo" data-fallback="hide-clear">`
-                                    : `<div style="width:30px; height:30px; border-radius:50%; background:#2a2a35; border:1px solid var(--cyan-accent); display:flex; align-items:center; justify-content:center; font-size:10px; font-family:'Press Start 2P'; color:var(--text-muted);">?</div>`;
+                                    : `<div style="width:30px; height:30px; border-radius:50%; background:#2a2a35; border:1px solid var(--cyan-accent); display:flex; align-items:center; justify-content:center; font-size:10px; font-family:'Press Start 2P'; color:var(--text-muted);">${stInitial}</div>`;
 
                                 tr.innerHTML = `
                                     <td>${index + 1}</td>
@@ -512,6 +523,11 @@ document.addEventListener('click', (e) => {
                                 `;
                                 tbody.appendChild(tr);
                             });
+                        } else {
+                            // Liga nueva: aún no hay partidos jugados, así que no hay
+                            // tabla que mostrar. Explicamos por qué en vez de dejar el
+                            // panel de posiciones en blanco.
+                            document.getElementById('no-standings-msg').style.display = 'block';
                         }
                     }
                 } catch(e) {
