@@ -16,6 +16,8 @@
             <div class="wrap">
                 <div class="hero-unit">
                     <!-- COLUMNA IZQUIERDA: copy -->
+                    <!-- COLUMNA IZQUIERDA: copy -->
+                   <!-- COLUMNA IZQUIERDA: copy -->
                     <div class="hero__copy">
                         <span class="eyebrow" data-anim style="animation-delay:0ms">Plataforma para ligas de básquetbol</span>
                         <h1>
@@ -27,6 +29,7 @@
                             Inscripciones, rosters, estadísticas en vivo y brackets de eliminación
                             en un solo tablero: claro, ordenado y siempre a la mano.
                         </p>
+                        
                         <div class="hero-cta" data-anim style="animation-delay:420ms">
                             <a href="#" class="hero-unlock-btn is-locked" id="cta-register" role="button" aria-disabled="true">
                                 <span id="cta-text">Anota 3 para registrar</span>
@@ -35,6 +38,7 @@
                             <p class="hero-progress" id="cta-note">Encesta en la cancha de la derecha para desbloquear tu registro con código.</p>
                             <span class="hero-code" id="cta-code"></span>
                         </div>
+
                     </div>
 
                     <!-- COLUMNA DERECHA: cabina arcade jugable (elemento firma) -->
@@ -52,6 +56,15 @@
                             <div class="arcade-stage">
                                 <canvas id="ag-canvas" width="400" height="300"></canvas>
                                 <div class="ag-hint" id="ag-hint">ARRASTRA Y LANZA</div>
+                            </div>
+                            <div class="arcade-hiscore" aria-label="Top 3 récords globales">
+                                <div class="arcade-hiscore__head">
+                                    <span class="arcade-hiscore__title">TOP 3</span>
+                                    <span class="arcade-hiscore__hint">Global</span>
+                                </div>
+                                <ol class="arcade-hiscore__list" id="arcade-leaderboard-list">
+                                    <li class="arcade-hiscore__row arcade-hiscore__row--loading">Cargando…</li>
+                                </ol>
                             </div>
                         </div>
                     </div>
@@ -200,6 +213,25 @@
 
         </div>
     </main>
+
+    <!-- Modal de Registro Arcade -->
+    <div id="arcade-modal" class="arcade-modal" aria-hidden="true" role="dialog" aria-labelledby="modal-title">
+        <div class="arcade-modal__backdrop"></div>
+        <div class="arcade-modal__content">
+            <div class="arcade-modal__header">
+                <h2 id="modal-title" class="arcade-modal__title">¡GAME OVER!</h2>
+                <p class="arcade-modal__score">Puntuación: <span id="modal-score">0</span></p>
+            </div>
+            <div class="arcade-modal__body">
+                <p class="arcade-modal__subtitle">Ingresa tus 3 iniciales para el ranking:</p>
+                <input type="text" id="modal-initials" class="arcade-modal__input" maxlength="3" placeholder="ABC" autocomplete="off">
+                <div class="arcade-modal__actions">
+                    <button type="button" id="modal-cancel" class="arcade-modal__btn arcade-modal__btn--cancel">Cancelar</button>
+                    <button type="button" id="modal-save" class="arcade-modal__btn arcade-modal__btn--save">Guardar</button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <%- include('partials/footer') %>
 

@@ -276,6 +276,46 @@ const torneos = [
     }
 ];
 
+// ==========================================================================
+// ENDPOINTS DEL MINIJUEGO (TOP 3 RÉCORDS ARCADE)
+// ==========================================================================
+app.get('/api/arcade-scores', async (req, res) => {
+    try {
+        const topScores = await prisma.arcadeScore.findMany({
+            orderBy: { score: 'desc' },
+            take: 3
+        });
+        res.json(topScores);
+    } catch (error) {
+        console.error('Error obteniendo récords arcade:', error);
+        res.status(500).json({ error: 'Error interno obteniendo los récords' });
+    }
+});
+
+app.post('/api/arcade-scores', optionalAuthenticateToken, async (req, res) => {
+    try {
+        const { initials, score } = req.body;
+        
+        if (!initials || score === undefined) {
+            return res.status(400).json({ error: 'Faltan datos del récord' });
+        }
+
+        const newScore = await prisma.arcadeScore.create({
+            data: {
+                initials: String(initials).substring(0, 7).toUpperCase(),
+                score: parseInt(score, 10),
+                // Si el jugador ya inició sesión, relacionamos su récord
+                userId: req.user ? req.user.id : null 
+            }
+        });
+        
+        res.status(201).json(newScore);
+    } catch (error) {
+        console.error('Error guardando récord arcade:', error);
+        res.status(500).json({ error: 'Error interno guardando el récord' });
+    }
+});
+
 // Ruta para obtener todos los torneos (legado en memoria)
 app.get('/api/torneos', (req, res) => {
     res.json(torneos);

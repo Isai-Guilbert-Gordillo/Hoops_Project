@@ -36,6 +36,9 @@ model User {
   
   // Relación: Un User (capitán) tiene muchos Equipos
   captainedTeams Team[]
+
+  // Relación: Un User puede tener varios récords en el minijuego
+  arcadeScores ArcadeScore[]
 }
 
 model Team {
@@ -148,5 +151,16 @@ model Match {
 
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+}
+model ArcadeScore {
+  id        String   @id @default(uuid())
+  initials  String   // Para las 3 letras del jugador (ej. "RH-N1KJ" o "IGG")
+  score     Int
+  
+  // Relación opcional por si el usuario ya está logueado en la plataforma
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+
+  createdAt DateTime @default(now())
 }
 
