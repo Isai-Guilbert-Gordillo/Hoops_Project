@@ -1095,7 +1095,7 @@ function buildRoundRobin(teamIds) {
 app.post('/api/tournaments/:id/schedule', authenticateToken, async (req, res) => {
     try {
         const { id: tournamentId } = req.params;
-        const { startDate, times, daysBetweenRounds } = req.body;
+        const { startDate, times, daysBetweenRounds, tzOffsetMinutes } = req.body;
 
         const tournament = await prisma.tournament.findUnique({ where: { id: tournamentId } });
         if (!tournament) return res.status(404).json({ error: 'Torneo no encontrado' });
@@ -1120,13 +1120,21 @@ app.post('/api/tournaments/:id/schedule', authenticateToken, async (req, res) =>
 
         // "2026-09-05" a secas lo interpreta Date como medianoche UTC, así que al
         // ponerle luego la hora local la primera jornada se iba al día anterior.
-        // Se construye con los componentes sueltos para que sea ese día, sin más.
+        // Se leen los componentes Y/M/D sueltos (nunca con getters locales, que en
+        // Render corren en UTC) para no depender del huso del servidor en ningún
+        // punto de este cálculo.
         const dayOnly = String(startDate || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
-        const firstDay = dayOnly
-            ? new Date(Number(dayOnly[1]), Number(dayOnly[2]) - 1, Number(dayOnly[3]))
-            : new Date(startDate || tournament.startDate);
-        if (isNaN(firstDay.getTime())) {
-            return res.status(400).json({ error: 'Indica una fecha de inicio válida para el calendario.' });
+        let baseYear, baseMonth, baseDay; // baseMonth: 1-indexado
+        if (dayOnly) {
+            [, baseYear, baseMonth, baseDay] = dayOnly.map(Number);
+        } else {
+            const d = new Date(startDate || tournament.startDate);
+            if (isNaN(d.getTime())) {
+                return res.status(400).json({ error: 'Indica una fecha de inicio válida para el calendario.' });
+            }
+            // tournament.startDate se guarda como día suelto a medianoche UTC:
+            // se leen los componentes en UTC, no en local, por la misma razón.
+            baseYear = d.getUTCFullYear(); baseMonth = d.getUTCMonth() + 1; baseDay = d.getUTCDate();
         }
 
         const slots = Array.isArray(times) && times.length > 0 ? times : ['18:00'];
@@ -1138,16 +1146,31 @@ app.post('/api/tournaments/:id/schedule', authenticateToken, async (req, res) =>
         const gap = parseInt(daysBetweenRounds, 10);
         const daysGap = Number.isInteger(gap) && gap > 0 ? gap : 7;
 
+        // El navegador manda su offset actual (mismo signo que Date#getTimezoneOffset:
+        // minutos que hay que SUMAR a la hora local para llegar a UTC). Sin esto, "18:00"
+        // se guardaba como 18:00 UTC —18:00 tal cual en Render— y un organizador en
+        // México veía su partido de las 18:00 aparecer a las 12:00.
+        // Limitación conocida: el offset se toma una sola vez, al generar. Si el
+        // calendario cruza un cambio de horario de verano, las jornadas del otro lado
+        // quedan una hora corridas; no hay selector de huso por liga para evitarlo.
+        const tzOffset = Number.isFinite(Number(tzOffsetMinutes)) ? Number(tzOffsetMinutes) : 0;
+
         const rounds = buildRoundRobin(enrollments.map(e => e.teamId));
 
         const data = [];
         rounds.forEach((pairs, roundIndex) => {
+            // Día de esta jornada: aritmética pura sobre un instante UTC (sumar N días
+            // completos no depende de ningún huso), y se releen los componentes en UTC.
+            const roundDayMillis = Date.UTC(baseYear, baseMonth - 1, baseDay) + roundIndex * daysGap * 86400000;
+            const roundDay = new Date(roundDayMillis);
+            const [ry, rm, rd] = [roundDay.getUTCFullYear(), roundDay.getUTCMonth(), roundDay.getUTCDate()];
+
             pairs.forEach(([homeTeamId, awayTeamId], gameIndex) => {
                 const [hh, mm] = slots[gameIndex % slots.length].split(':').map(Number);
-                const day = new Date(firstDay);
-                day.setDate(day.getDate() + roundIndex * daysGap);
-                day.setHours(hh, mm, 0, 0);
-                data.push({ tournamentId, homeTeamId, awayTeamId, matchDate: day, stage: 'REGULAR' });
+                // Instante real = la hora local del organizador para ese día, convertida
+                // a UTC sumando su offset.
+                const matchMillis = Date.UTC(ry, rm, rd, hh, mm) + tzOffset * 60000;
+                data.push({ tournamentId, homeTeamId, awayTeamId, matchDate: new Date(matchMillis), stage: 'REGULAR' });
             });
         });
 
