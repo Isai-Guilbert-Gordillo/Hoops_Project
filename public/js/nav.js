@@ -80,7 +80,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         btnLogout.addEventListener('click', async () => {
             try {
                 await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-                localStorage.removeItem('kphoops_token'); // Limpieza de basura vieja por seguridad
+                // La sesión de verdad ya se cerró arriba (se limpió la cookie
+                // httpOnly en el servidor). Esto solo limpia las pistas locales no
+                // sensibles: el nombre para el saludo, el rol para la UI, la marca
+                // de actividad del cierre por inactividad, y kphoops_token por si
+                // quedó de una sesión vieja de antes de este arreglo.
+                localStorage.removeItem('kphoops_token');
+                localStorage.removeItem('kphoops_user_name');
+                localStorage.removeItem('kphoops_user_role');
+                localStorage.removeItem('kphoops_last_activity');
                 window.location.href = '/';
             } catch (err) {
                 console.error("Error al cerrar sesión:", err);

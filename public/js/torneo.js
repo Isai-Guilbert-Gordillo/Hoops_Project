@@ -251,27 +251,14 @@ document.addEventListener('click', (e) => {
 
 // ---- bloque inline #4 ----
         document.addEventListener('DOMContentLoaded', async () => {
-            // Manejo de UI Navbar
-            const token = localStorage.getItem('kphoops_token');
-            const userName = localStorage.getItem('kphoops_user_name');
-            const btnLogin = document.getElementById('btn-login');
-            const btnRegister = document.getElementById('btn-register');
-            const userGreeting = document.getElementById('user-greeting');
-            const btnLogout = document.getElementById('btn-logout');
-
-            if (token && userName) {
-                btnLogin.style.display = 'none';
-                btnRegister.style.display = 'none';
-                userGreeting.style.display = 'block';
-                userGreeting.textContent = `Hola, ${capitalizeName(userName)}`;
-                btnLogout.style.display = 'inline-block';
-            }
-
-            btnLogout.addEventListener('click', () => {
-                localStorage.removeItem('kphoops_token');
-                localStorage.removeItem('kphoops_user_name');
-                window.location.reload();
-            });
+            // El saludo y "Cerrar sesión" del header ya los resuelve /js/nav.js
+            // (lee la cookie httpOnly vía /api/auth/me); esta página no necesita
+            // su propia copia de esa lógica. kphoops_user_name (no sensible: solo
+            // el nombre a mostrar) sirve más abajo como pista instantánea de "hay
+            // sesión" para decidir qué UI mostrar, sin esperar una llamada de red;
+            // la autorización real de cada acción la hace el servidor con la
+            // cookie httpOnly.
+            const hasSession = !!localStorage.getItem('kphoops_user_name');
 
             // Extraer ID del torneo
             const urlParams = new URLSearchParams(window.location.search);
@@ -287,17 +274,11 @@ document.addEventListener('click', (e) => {
             let isOrganizer = false;
             let userHasEligibleTeam = false; // ¿el usuario tiene una franquicia que aún puede inscribir?
             try {
-        // 1. Usamos la llave CORRECTA ('kphoops_token') para que el backend nos reconozca
-        const myToken = localStorage.getItem('kphoops_token');
-
-        const headers = {};
-        if (myToken) {
-            headers['Authorization'] = `Bearer ${myToken}`;
-        }
-
-        // 2. Hacemos la petición
+        // La cookie httpOnly de sesión viaja sola con credentials:'include'; el
+        // endpoint usa auth opcional (funciona sin sesión, y si la hay calcula
+        // isOrganizer del lado del servidor).
         const response = await fetch(`/api/tournaments/${tournamentId}`, {
-            headers: headers
+            credentials: 'include'
         });
 
         if (!response.ok) throw new Error('Torneo no encontrado o error en servidor');
@@ -324,7 +305,8 @@ document.addEventListener('click', (e) => {
                 document.getElementById('tournament-hero').style.display = 'block';
                 document.getElementById('teams-header').style.display = 'block';
                 
-                // Decodificar token para ver si es organizador
+                // El servidor ya calculó isOrganizer leyendo la cookie de sesión;
+                // no hay ningún token que decodificar aquí.
                 isOrganizer = tournament.isOrganizer === true;
 
                 // Mostrar equipos inscritos
@@ -463,10 +445,8 @@ document.addEventListener('click', (e) => {
                             try {
                                 const res = await fetch(`/api/enrollments/${enrollmentId}/payment`, {
                                     method: 'PUT',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${token}`
-                                    },
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
                                     body: JSON.stringify({ amountPaid: input.value })
                                 });
 
@@ -945,10 +925,8 @@ document.addEventListener('click', (e) => {
                             try {
                                 const response = await fetch(`/api/matches/${matchId}/score`, {
                                     method: 'PUT',
-                                    headers: {
-                                        'Content-Type': 'application/json',
-                                        'Authorization': `Bearer ${token}`
-                                    },
+                                    headers: { 'Content-Type': 'application/json' },
+                                    credentials: 'include',
                                     body: JSON.stringify({ homeScore, awayScore })
                                 });
 
@@ -975,10 +953,9 @@ document.addEventListener('click', (e) => {
                         if (!confirmed) return;
 
                         try {
-                            const token = localStorage.getItem('kphoops_token');
                             const res = await fetch(`/api/matches/${matchId}`, {
                                 method: 'DELETE',
-                                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                                credentials: 'include'
                             });
                             const data = await res.json().catch(() => ({}));
                             if (!res.ok) {
@@ -1151,10 +1128,8 @@ document.addEventListener('click', (e) => {
                                     try {
                                         const r = await fetch(url, {
                                             method: editing ? 'PATCH' : 'POST',
-                                            headers: {
-                                                'Content-Type': 'application/json',
-                                                'Authorization': `Bearer ${token}`
-                                            },
+                                            headers: { 'Content-Type': 'application/json' },
+                                            credentials: 'include',
                                             body: JSON.stringify(payload)
                                         });
 
@@ -1278,7 +1253,8 @@ document.addEventListener('click', (e) => {
                                         try {
                                             const r = await fetch(`/api/tournaments/${tournamentId}/schedule`, {
                                                 method: 'POST',
-                                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                                                headers: { 'Content-Type': 'application/json' },
+                                                credentials: 'include',
                                                 body: JSON.stringify({
                                                     startDate: document.getElementById('sched-start').value,
                                                     daysBetweenRounds: document.getElementById('sched-gap').value,
@@ -1320,9 +1296,7 @@ document.addEventListener('click', (e) => {
                                         try {
                                             const r = await fetch(`/api/tournaments/${tournamentId}/playoffs`, {
                                                 method: 'POST',
-                                                headers: {
-                                                    'Authorization': `Bearer ${token}`
-                                                }
+                                                credentials: 'include'
                                             });
 
                                             const d = await r.json();
@@ -1358,7 +1332,7 @@ document.addEventListener('click', (e) => {
                                         try {
                                             const r = await fetch(`/api/tournaments/${tournamentId}/reset-season`, {
                                                 method: 'POST',
-                                                headers: { 'Authorization': `Bearer ${token}` }
+                                                credentials: 'include'
                                             });
 
                                             const d = await r.json();
@@ -1393,15 +1367,13 @@ document.addEventListener('click', (e) => {
             // equipos ajenos, elegir uno terminaría en un 403 a ciegas.
             // El organizador arma su liga con sus propias franquicias (tiene cupo
             // para 64) o repartiendo el enlace de invitación.
-            if (token) {
+            if (hasSession) {
                 try {
                     const selectElement = document.getElementById('franchise-select');
                     const sectionEl = document.getElementById('enrollment-section');
                     const submitBtn = document.querySelector('#enrollForm button[type="submit"]');
 
-                    const teamsRes = await fetch('/api/users/me/teams', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
+                    const teamsRes = await fetch('/api/users/me/teams', { credentials: 'include' });
                     const candidateTeams = teamsRes.ok ? await teamsRes.json() : [];
 
                     if (isOrganizer) {
@@ -1499,10 +1471,8 @@ document.addEventListener('click', (e) => {
                     try {
                         const res = await fetch(`/api/tournaments/${tournamentId}/enroll`, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
                             body: JSON.stringify({ teamId })
                         });
                         
@@ -1533,7 +1503,7 @@ document.addEventListener('click', (e) => {
                 const ctaText = cta.querySelector('.btn-content');
                 const emptyText = document.getElementById('empty-state-text');
 
-                if (!token) {
+                if (!hasSession) {
                     // Visitante sin sesión: invitarlo a iniciar sesión para inscribirse.
                     emptyText.textContent = 'Inicia sesión para inscribir tu franquicia y competir.';
                     ctaText.textContent = '🔑 Iniciar sesión';

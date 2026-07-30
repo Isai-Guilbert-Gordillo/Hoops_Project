@@ -10,27 +10,10 @@
         }, true);
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // Manejo de UI Navbar
-            const token = localStorage.getItem('kphoops_token');
-            const userName = localStorage.getItem('kphoops_user_name');
-            const btnLogin = document.getElementById('btn-login');
-            const btnRegister = document.getElementById('btn-register');
-            const btnLogout = document.getElementById('btn-logout');
-            const greeting = document.getElementById('user-greeting');
-
-            if (token && userName) {
-                btnLogin.style.display = 'none';
-                btnRegister.style.display = 'none';
-                greeting.innerText = 'Hola, ' + capitalizeName(userName);
-                greeting.style.display = 'inline-block';
-                btnLogout.style.display = 'inline-block';
-            }
-
-            btnLogout.addEventListener('click', () => {
-                localStorage.removeItem('kphoops_token');
-                localStorage.removeItem('kphoops_user_name');
-                window.location.reload();
-            });
+            // El saludo y los botones de sesión del header ya los resuelve
+            // /js/nav.js (lee la cookie httpOnly vía /api/auth/me); esta página
+            // solo consulta datos públicos del equipo, no necesita su propia
+            // copia de esa lógica.
 
             const urlParams = new URLSearchParams(window.location.search);
             const teamId = urlParams.get('teamId');

@@ -6,8 +6,6 @@
         });
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('kphoops_token');
-
             // Torneo al que se invita al capitán (viene del enlace de invitación):
             // se conserva para, al terminar de crear la franquicia, llevarlo a
             // inscribirse en ese torneo.
@@ -15,46 +13,30 @@
 
             // Si no hay sesión, mandarlo a REGISTRARSE (no a login) y volver aquí
             // después. Así el flujo de invitación es: registro -> crear franquicia.
-            if (!token) {
+            // kphoops_user_name es solo el nombre para el saludo (no un secreto);
+            // sirve como pista instantánea sin esperar una llamada de red. La
+            // sesión de verdad vive en la cookie httpOnly, que valida cada fetch
+            // protegida de abajo.
+            if (!localStorage.getItem('kphoops_user_name')) {
                 const next = window.location.pathname + window.location.search;
                 window.location.href = '/registro.html?next=' + encodeURIComponent(next);
                 return;
             }
 
-            // ========== SETUP DE NAVEGACIÓN ==========
-            const btnLogin = document.getElementById('btn-login');
-            const btnRegister = document.getElementById('btn-register');
-            const btnLogout = document.getElementById('btn-logout');
-            const greetingEl = document.getElementById('user-greeting');
-            const userName = localStorage.getItem('kphoops_user_name') || 'Jugador';
-
-            btnLogin.style.display = 'none';
-            btnRegister.style.display = 'none';
-            greetingEl.textContent = 'Bienvenido, ' + capitalizeName(userName);
-            greetingEl.style.display = 'inline-block';
-            btnLogout.style.display = 'inline-block';
-
-            btnLogout.addEventListener('click', () => {
-                localStorage.removeItem('kphoops_token');
-                localStorage.removeItem('kphoops_user_name');
-                showToast('Sesión cerrada', 'success');
-                setTimeout(() => window.location.href = '/', 1000);
-            });
+            // El saludo y "Cerrar sesión" del header ya los resuelve /js/nav.js
+            // (lee la cookie httpOnly vía /api/auth/me); esta página no necesita
+            // su propia copia de esa lógica.
 
             // ========== VERIFICAR LÍMITE DE FRANQUICIAS (los ADMIN no tienen límite) ==========
             try {
-                const meRes = await fetch('/api/auth/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
                 const role = meRes.ok ? (await meRes.json())?.role : null;
 
                 // Límite por rol (mismo criterio que el backend):
                 //  capitán normal = 1 · ORGANIZER = 64 (arma sus ligas) · ADMIN = sin límite
                 if (role !== 'ADMIN') {
                     const limit = role === 'ORGANIZER' ? 64 : 1;
-                    const myTeamsRes = await fetch('/api/users/me/teams', {
-                        headers: { 'Authorization': `Bearer ${token}` }
-                    });
+                    const myTeamsRes = await fetch('/api/users/me/teams', { credentials: 'include' });
                     if (myTeamsRes.ok) {
                         const myTeams = await myTeamsRes.json();
                         if (myTeams.length >= limit) {
@@ -137,9 +119,7 @@
                 try {
                     const response = await fetch('/api/teams', {
                         method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        },
+                        credentials: 'include',
                         body: formData
                     });
 
@@ -366,9 +346,7 @@
 
                         const response = await fetch(`/api/teams/${currentTeamId}/players`, {
                             method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${token}`
-                            },
+                            credentials: 'include',
                             body: playerFormData
                         });
 
@@ -407,11 +385,6 @@
                 }
             });
         });
-
-        // Función auxiliar
-        function capitalizeName(name) {
-            return name.charAt(0).toUpperCase() + name.slice(1);
-        }
 
         // Normaliza nombres a "Title Case" (Tyler Hero), igual que las sedes y
         // equipos, para no guardar lo que el usuario escribió tal cual (TYLER HERO).

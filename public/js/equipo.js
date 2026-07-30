@@ -1,19 +1,5 @@
 // RETRO HOOPS · equipo — lógica de página (extraída del <script> inline).
 
-        // Funciones Utilitarias
-        function parseJwt(token) {
-            try {
-                const base64Url = token.split('.')[1];
-                const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-                const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-                    return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-                }).join(''));
-                return JSON.parse(jsonPayload);
-            } catch (e) {
-                return null;
-            }
-        }
-
         // Fallbacks de imagen rota y acciones dinámicas (roster/inscripción), sin
         // handlers inline: 'error' no burbujea, se escucha en fase de captura.
         document.addEventListener('error', (e) => {
@@ -39,32 +25,19 @@
         });
 
         document.addEventListener('DOMContentLoaded', async () => {
-            // Navbar session checking
-            const token = localStorage.getItem('kphoops_token');
-            const userName = localStorage.getItem('kphoops_user_name');
-            const btnLogin = document.getElementById('btn-login');
-            const btnRegister = document.getElementById('btn-register');
-            const userGreeting = document.getElementById('user-greeting');
-            const btnLogout = document.getElementById('btn-logout');
-
+            // El saludo y "Cerrar sesión" del header ya los resuelve /js/nav.js
+            // (lee la cookie httpOnly vía /api/auth/me); aquí solo hace falta
+            // saber quién soy para decidir si muestro los controles de capitán
+            // (borrar jugador, añadir jugador, inscribir a un torneo). Antes se
+            // sacaba decodificando el JWT a mano en el navegador; /api/auth/me
+            // hace ese trabajo del lado del servidor, leyendo la cookie httpOnly.
+            // La autorización real de cada acción se revalida en el servidor de
+            // todos modos, así que esto es solo para decidir qué se muestra.
             let userId = null;
-
-            if (token && userName) {
-                btnLogin.style.display = 'none';
-                btnRegister.style.display = 'none';
-                userGreeting.style.display = 'block';
-                userGreeting.textContent = `Hola, ${capitalizeName(userName)}`;
-                btnLogout.style.display = 'inline-block';
-
-                const decoded = parseJwt(token);
-                if (decoded) userId = decoded.id; // Extraemos el ID del usuario del JWT
-            }
-
-            btnLogout.addEventListener('click', () => {
-                localStorage.removeItem('kphoops_token');
-                localStorage.removeItem('kphoops_user_name');
-                window.location.href = 'index.html';
-            });
+            try {
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+                if (meRes.ok) userId = (await meRes.json()).id;
+            } catch (e) { /* sin sesión: se sigue como visitante */ }
 
             // Extraer ID de equipo de la URL
             const urlParams = new URLSearchParams(window.location.search);
@@ -130,7 +103,7 @@
                 if (isCaptain) {
                     document.getElementById('add-player-section').style.display = 'block';
                     document.getElementById('enroll-section').style.display = 'block';
-                    await loadTournamentEnrollment(team, token);
+                    await loadTournamentEnrollment(team);
                 }
 
             } catch (error) {
@@ -140,7 +113,7 @@
 
             // Carga torneos ya inscritos + disponibles, y permite al capitán
             // inscribir su equipo sin salir de la página del equipo.
-            async function loadTournamentEnrollment(team, token) {
+            async function loadTournamentEnrollment(team) {
                 const enrolledWrap = document.getElementById('enrolled-tournaments-wrap');
                 const enrolledList = document.getElementById('enrolled-tournaments-list');
                 const availableList = document.getElementById('available-tournaments-list');
@@ -189,10 +162,8 @@
                     try {
                         const res = await fetch(`/api/tournaments/${tournamentId}/enroll`, {
                             method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            },
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
                             body: JSON.stringify({ teamId: team.id })
                         });
                         const data = await res.json();
@@ -252,9 +223,7 @@
                 try {
                     const res = await fetch(`/api/teams/${teamId}/players`, {
                         method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${token}`
-                        },
+                        credentials: 'include',
                         body: formData
                     });
 
@@ -296,10 +265,9 @@
         document.getElementById('delete-player-confirm').addEventListener('click', () => {
             if (!playerIdToDelete) return;
 
-            const token = localStorage.getItem('kphoops_token');
             fetch(`/api/players/${playerIdToDelete}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': `Bearer ${token}` }
+                credentials: 'include'
             })
             .then(res => res.json().then(data => ({ status: res.status, data })))
             .then(({ status, data }) => {

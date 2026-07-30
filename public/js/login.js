@@ -36,9 +36,11 @@
                 const data = await response.json();
 
                 if (response.ok) {
-                    if (data.token) {
-                        localStorage.setItem('kphoops_token', data.token);
-                    }
+                    // El JWT ya quedó en la cookie httpOnly que puso el propio
+                    // servidor (credentials:'include' arriba se encarga de
+                    // recibirla). No se guarda también en localStorage: eso lo
+                    // dejaría legible para cualquier XSS, que es exactamente lo
+                    // que la cookie httpOnly existe para evitar.
                     if (data.user) {
                         localStorage.setItem('kphoops_user_name', data.user.firstName);
                         localStorage.setItem('kphoops_user_role', data.user.role);

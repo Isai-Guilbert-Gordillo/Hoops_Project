@@ -9,9 +9,13 @@
         document.addEventListener('DOMContentLoaded', async () => {
             const urlParams = new URLSearchParams(window.location.search);
             const tournamentId = urlParams.get('tournamentId');
-            const token = localStorage.getItem('kphoops_token');
+            // Pista no sensible (solo el nombre a mostrar) para descartar de
+            // entrada al visitante obviamente sin sesión, sin esperar una
+            // respuesta de red. La autorización real la hace el servidor abajo,
+            // leyendo la cookie httpOnly.
+            const looksLoggedIn = !!localStorage.getItem('kphoops_user_name');
 
-            if (!tournamentId || !token) {
+            if (!tournamentId || !looksLoggedIn) {
                 showToast('Acceso denegado', 'error');
                 setTimeout(() => window.location.href = '/', 1500);
                 return;
@@ -19,7 +23,7 @@
 
             try {
                 const res = await fetch(`/api/tournaments/${tournamentId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include'
                 });
 
                 if (!res.ok) throw new Error('Error al cargar torneo');
@@ -62,11 +66,10 @@
                 return;
             }
 
-            const token = localStorage.getItem('kphoops_token');
             try {
                 const res = await fetch(`/api/enrollments/${enrollmentId}`, {
                     method: 'DELETE',
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include'
                 });
 
                 const data = await res.json();

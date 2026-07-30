@@ -1,9 +1,14 @@
 // Cierre de sesión por INACTIVIDAD (10 min).
 //
-// Solo actúa si hay sesión iniciada (token en localStorage). Cualquier actividad
-// del usuario (mover el ratón, teclear, hacer scroll, tocar la pantalla) reinicia
-// el contador. Al cumplirse la inactividad se limpia la sesión local, se cierra la
-// cookie httpOnly en el servidor y se redirige a login.
+// Solo actúa si hay sesión iniciada. La sesión de verdad vive en una cookie
+// httpOnly que este script NO puede leer (por diseño: así un XSS no puede
+// robarla) — para saber "hay alguien conectado" sin hacer una llamada de red en
+// cada carga de página, se usa kphoops_user_name como pista: no es secreta (es
+// solo el nombre para el saludo del header), así que no importa que quede en
+// localStorage. Cualquier actividad del usuario (mover el ratón, teclear, hacer
+// scroll, tocar la pantalla) reinicia el contador. Al cumplirse la inactividad
+// se limpia la pista local, se cierra la cookie httpOnly en el servidor y se
+// redirige a login.
 //
 // La actividad y el cierre se comparten entre pestañas vía localStorage: seguir
 // activo en una pestaña mantiene viva la sesión en las demás, y cerrar sesión en
@@ -17,11 +22,11 @@
     'use strict';
 
     var IDLE_MS = 10 * 60 * 1000;                 // 10 minutos
-    var TOKEN_KEY = 'kphoops_token';
+    var SESSION_HINT_KEY = 'kphoops_user_name';   // no sensible: solo el nombre a mostrar
     var ACTIVITY_KEY = 'kphoops_last_activity';
     var LOGOUT_KEY = 'kphoops_logout';
 
-    function isLoggedIn() { return !!localStorage.getItem(TOKEN_KEY); }
+    function isLoggedIn() { return !!localStorage.getItem(SESSION_HINT_KEY); }
 
     // En páginas públicas (sin sesión) no hay nada que vigilar.
     if (!isLoggedIn()) return;
@@ -31,8 +36,7 @@
 
     function clearLocalSession() {
         try {
-            localStorage.removeItem(TOKEN_KEY);
-            localStorage.removeItem('kphoops_user_name');
+            localStorage.removeItem(SESSION_HINT_KEY);
             localStorage.removeItem('kphoops_user_role');
             // Importante: borrar también la marca de actividad para que un login
             // posterior NO se cierre de inmediato leyendo un valor viejo (evita
