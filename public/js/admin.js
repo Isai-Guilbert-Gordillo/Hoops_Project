@@ -13,40 +13,38 @@
         });
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('kphoops_token');
-            const userName = localStorage.getItem('kphoops_user_name');
-            const btnLogin = document.getElementById('btn-login');
-            const btnRegister = document.getElementById('btn-register');
-            const userGreeting = document.getElementById('user-greeting');
-            const btnLogout = document.getElementById('btn-logout');
-
-            if (token && userName) {
-                btnLogin.style.display = 'none';
-                btnRegister.style.display = 'none';
-                userGreeting.style.display = 'block';
-                userGreeting.textContent = `Hola, ${capitalizeName(userName)}`;
-                btnLogout.style.display = 'inline-block';
-            }
-
-            btnLogout.addEventListener('click', () => {
-                localStorage.removeItem('kphoops_token');
-                localStorage.removeItem('kphoops_user_name');
-                window.location.href = '/';
-            });
-
-            const currentUserId = (() => {
-                if (!token) return null;
-                try {
-                    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-                    return JSON.parse(decodeURIComponent(atob(base64).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join(''))).id;
-                } catch (e) { return null; }
-            })();
+            // El saludo y los botones de sesión del header ya los resuelve
+            // /js/nav.js (lee la cookie httpOnly vía /api/auth/me); esta página
+            // no necesita su propia copia de esa lógica.
 
             const usersCard = document.getElementById('users-card');
             const usersBody = document.getElementById('users-body');
             const accessDenied = document.getElementById('access-denied');
 
-            if (!token) {
+            // Quién soy y si soy ADMIN: antes se sacaba decodificando el JWT a
+            // mano en el navegador (inseguro y fue explícitamente eliminado de
+            // nav.js por esto mismo). /api/auth/me ya hace ese trabajo del lado
+            // del servidor, leyendo la cookie httpOnly.
+            let currentUserId = null;
+            try {
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+                if (!meRes.ok) {
+                    usersCard.style.display = 'none';
+                    accessDenied.style.display = 'block';
+                    return;
+                }
+                const me = await meRes.json();
+                currentUserId = me.id;
+                // La UI se ajusta aquí para no mostrar la tabla ni un instante a
+                // quien no es admin, pero la autorización real vuelve a
+                // comprobarse en el servidor en cada fetch de abajo (un 403 de
+                // loadUsers() cae en el mismo aviso).
+                if (me.role !== 'ADMIN') {
+                    usersCard.style.display = 'none';
+                    accessDenied.style.display = 'block';
+                    return;
+                }
+            } catch (e) {
                 usersCard.style.display = 'none';
                 accessDenied.style.display = 'block';
                 return;
@@ -54,7 +52,7 @@
 
             async function loadUsers() {
                 try {
-                    const res = await fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } });
+                    const res = await fetch('/api/users', { credentials: 'include' });
 
                     if (res.status === 403) {
                         usersCard.style.display = 'none';
@@ -121,10 +119,8 @@
                 try {
                     const res = await fetch(`/api/users/${userId}/role`, {
                         method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
                         body: JSON.stringify({ role })
                     });
                     const data = await res.json();
@@ -152,7 +148,7 @@
                 try {
                     const res = await fetch(`/api/users/${userId}`, {
                         method: 'DELETE',
-                        headers: { 'Authorization': `Bearer ${token}` }
+                        credentials: 'include'
                     });
                     const data = await res.json();
                     if (!res.ok) throw new Error(data.error || 'Error al eliminar el usuario');

@@ -46,7 +46,9 @@
 
                 if (loginRes.ok) {
                     const ld = await loginRes.json();
-                    if (ld.token) localStorage.setItem('kphoops_token', ld.token);
+                    // El JWT queda en la cookie httpOnly (ya la puso el login de
+                    // arriba); no se duplica en localStorage, donde cualquier XSS
+                    // podría leerlo.
                     if (ld.user) {
                         localStorage.setItem('kphoops_user_name', ld.user.firstName);
                         localStorage.setItem('kphoops_user_role', ld.user.role);

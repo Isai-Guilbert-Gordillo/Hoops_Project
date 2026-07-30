@@ -19,8 +19,6 @@
         // punto cargado por error en cualquiera de los dos equipos.
         const pointsHistory = [];
 
-        const token = localStorage.getItem('kphoops_token');
-
         // Formato MM:SS
         function formatTime(seconds) {
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -120,10 +118,8 @@
                 try {
                     const res = await fetch(`/api/matches/${matchId}/player-stat`, {
                         method: 'PATCH',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
                         body: JSON.stringify({ playerId, action, increment })
                     });
                     if (!res.ok) throw new Error('respuesta ' + res.status);
@@ -296,9 +292,13 @@
 
         // Init
         window.onload = async () => {
-            const token = localStorage.getItem('kphoops_token');
-            if (!token) {
-                console.error("No token found");
+            // Pista no sensible (solo el nombre a mostrar) para descartar de
+            // entrada a quien claramente no tiene sesión, sin esperar una
+            // llamada de red. Las acciones que sí importan (guardar el marcador,
+            // el boxscore, cada jugada) las autoriza el servidor con la cookie
+            // httpOnly de sesión, no esto.
+            if (!localStorage.getItem('kphoops_user_name')) {
+                console.error("No hay sesión");
                 showLoadError('Inicia sesión para abrir la mesa de control.');
                 return;
             }
@@ -314,7 +314,7 @@
 
             try {
                 const response = await fetch(`/api/matches/${matchId}`, {
-                    headers: { 'Authorization': `Bearer ${token}` }
+                    credentials: 'include'
                 });
 
                 if (!response.ok) {
@@ -410,10 +410,8 @@
                 // 1. Guardar Score Global y cambiar status
                 const scoreRes = await fetch(`/api/matches/${matchId}/score`, {
                     method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
                     body: JSON.stringify({ homeScore: gameState.homeScore, awayScore: gameState.awayScore })
                 });
 
@@ -428,10 +426,8 @@
                     console.log("Enviando stats:", { stats: statsPayload });
                     const statsRes = await fetch(`/api/matches/${matchId}/boxscore`, {
                         method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
+                        headers: { 'Content-Type': 'application/json' },
+                        credentials: 'include',
                         body: JSON.stringify({ stats: statsPayload })
                     });
 

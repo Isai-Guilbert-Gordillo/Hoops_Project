@@ -3,22 +3,15 @@
         const form = document.querySelector('form');
 
         document.addEventListener('DOMContentLoaded', async () => {
-            const token = localStorage.getItem('kphoops_token');
-            if (!token) {
-                form.style.display = 'none';
-                document.getElementById('limit-reached').style.display = 'none';
-                showToast('Debes iniciar sesión para acceder a esta página.', 'error');
-                setTimeout(() => window.location.href = '/login.html', 1500);
-                return;
-            }
-
+            // /api/auth/me lee la cookie httpOnly de sesión (no hay token en
+            // localStorage que comprobar antes): si no hay sesión válida, esta
+            // llamada ya devuelve 401 y sirve de única guarda.
             try {
-                const meRes = await fetch('/api/auth/me', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
+                const meRes = await fetch('/api/auth/me', { credentials: 'include' });
                 if (!meRes.ok) {
-                    localStorage.removeItem('kphoops_token');
-                    showToast('Sesión expirada. Inicia sesión de nuevo.', 'error');
+                    form.style.display = 'none';
+                    document.getElementById('limit-reached').style.display = 'none';
+                    showToast('Debes iniciar sesión para acceder a esta página.', 'error');
                     setTimeout(() => window.location.href = '/login.html', 1500);
                     return;
                 }
@@ -38,14 +31,6 @@
         form.addEventListener('submit', (e) => {
             e.preventDefault(); // Evitar recarga de página
 
-            // Verificar si el usuario ha iniciado sesión antes de nada
-            const token = localStorage.getItem('kphoops_token');
-            if (!token) {
-                showToast('Debes iniciar sesión para crear un torneo.', 'error');
-                setTimeout(() => window.location.href = '/login.html', 1500);
-                return;
-            }
-
             // Extraer datos del formulario
             const formData = new FormData(form);
             const formObj = Object.fromEntries(formData.entries());
@@ -60,19 +45,18 @@
                 inscriptionFee: formObj.inscriptionFee
             };
 
-            // Enviar petición al backend agregando el Token
+            // La sesión viaja en la cookie httpOnly (credentials:'include'), no
+            // hace falta ningún token de por medio. Si no hay sesión válida el
+            // servidor responde 401/403 y se maneja abajo igual que antes.
             fetch('/api/tournaments', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token
-                },
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify(data)
             })
             .then(res => res.json().then(body => ({ status: res.status, body })))
             .then(({ status, body }) => {
                 if (status === 401 || status === 403) {
-                    localStorage.removeItem('kphoops_token');
                     showToast('Sesión expirada o no autorizada', 'error');
                     setTimeout(() => window.location.href = '/login.html', 1500);
                     return;
