@@ -10,8 +10,39 @@ const sharp = require('sharp');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
+const cors = require('cors');
 
 const app = express();
+
+// CORS restringido: la web se sirve de este mismo origen y las apps nativas no
+// aplican CORS, así que solo se abre a orígenes explícitos. Fuera de producción
+// se permite localhost para el preview web de Expo.
+// Se puede sobrescribir con CORS_ORIGINS="https://a.com,https://b.com".
+const allowedOrigins = (process.env.CORS_ORIGINS || 'https://hoops-project.onrender.com')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+if (process.env.NODE_ENV !== 'production') {
+    allowedOrigins.push(/^http:\/\/localhost:\d+$/);
+}
+
+app.use(cors({
+    origin(origin, callback) {
+        // Sin cabecera Origin (apps nativas, curl, health checks de Render) no
+        // hay nada que proteger: CORS solo restringe al navegador.
+        if (!origin) return callback(null, true);
+
+        const permitido = allowedOrigins.some(permitida =>
+            permitida instanceof RegExp ? permitida.test(origin) : permitida === origin
+        );
+
+        // Se niega omitiendo las cabeceras, no lanzando: el navegador bloquea
+        // la respuesta y el servidor no responde 500.
+        callback(null, permitido);
+    }
+}));
+
 const port = process.env.PORT || 3000;
 const prisma = new PrismaClient();
 
