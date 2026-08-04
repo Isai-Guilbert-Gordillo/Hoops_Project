@@ -91,6 +91,10 @@ const FREE_PLAN_LIMITS = {
     MAX_TEAMS_PER_ORGANIZER: 64
 };
 
+// Longitud mínima de contraseña. Única fuente de verdad: la usan el registro,
+// el registro con equipo y el cambio de contraseña.
+const MIN_PASSWORD_LENGTH = 8;
+
 // Sanea una URL de imagen recibida en el body. Solo se aceptan rutas internas
 // de archivos ya subidos a este servidor (/uploads/...). Rechaza URLs externas,
 // esquemas peligrosos (javascript:, data:) y cualquier cosa que luego se
@@ -1920,8 +1924,10 @@ app.post('/api/teams/register-captain', authLimiter, async (req, res) => {
         if (!email || !emailRegex.test(email)) {
             return res.status(400).json({ error: 'Email inválido.' });
         }
-        if (!password || password.length < 8) {
-            return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+        if (!password || password.length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({
+                error: `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+            });
         }
         if (!firstName || !lastName) {
             return res.status(400).json({ error: 'Nombre y apellido son obligatorios.' });
@@ -1990,7 +1996,17 @@ app.post('/api/teams/register-captain', authLimiter, async (req, res) => {
 app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
         const { email, password, firstName, lastName } = req.body;
-        
+
+        if (!email || !password || !firstName || !lastName) {
+            return res.status(400).json({ error: 'Faltan datos obligatorios.' });
+        }
+
+        if (password.length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({
+                error: `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+            });
+        }
+
         // Verificar si el usuario ya existe
         const existingUser = await prisma.user.findUnique({ where: { email } });
         if (existingUser) {
@@ -2092,6 +2108,43 @@ app.get('/api/auth/me', authenticateToken, async (req, res) => {
     console.error('Error en GET /api/auth/me:', error);
     res.status(500).json({ error: 'Error al obtener datos del usuario' });
   }
+});
+
+// Cambio de contraseña del propio usuario (requiere la contraseña actual)
+app.put('/api/auth/password', authLimiter, authenticateToken, async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!currentPassword || !newPassword) {
+            return res.status(400).json({ error: 'Falta la contraseña actual o la nueva.' });
+        }
+
+        if (newPassword.length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({
+                error: `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+            });
+        }
+
+        const user = await prisma.user.findUnique({ where: { id: req.user.id } });
+        if (!user) {
+            return res.status(404).json({ error: 'Usuario no encontrado' });
+        }
+
+        const isCurrentValid = await bcrypt.compare(currentPassword, user.passwordHash);
+        if (!isCurrentValid) {
+            return res.status(401).json({ error: 'La contraseña actual no es correcta.' });
+        }
+
+        await prisma.user.update({
+            where: { id: user.id },
+            data: { passwordHash: await bcrypt.hash(newPassword, 10) }
+        });
+
+        res.json({ message: 'Contraseña actualizada' });
+    } catch (error) {
+        console.error('Error en PUT /api/auth/password:', error);
+        res.status(500).json({ error: 'Error al cambiar la contraseña' });
+    }
 });
 
 // Obtener standings del torneo
