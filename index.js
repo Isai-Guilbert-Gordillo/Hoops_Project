@@ -641,6 +641,9 @@ app.get('/api/tournaments/:id', optionalAuthenticateToken, async (req, res) => {
         const tournament = await prisma.tournament.findUnique({
             where: { id },
             include: {
+                // Quién montó la liga: el listado ya lo devolvía, el detalle no, así
+                // que la ficha no podía dar crédito a su organizador.
+                organizer: { select: { id: true, firstName: true, lastName: true } },
                 enrollments: {
                     include: {
                         // El capitán viaja con cada equipo para que el organizador
