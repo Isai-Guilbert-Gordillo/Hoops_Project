@@ -102,6 +102,13 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 }
 const AUTH_COOKIE_NAME = 'kphoops_session';
 const JWT_EXPIRES_IN = '7d';
+
+// Login con Google: la app móvil manda el ID token de Google y lo verificamos
+// contra el WEB client ID (audience). Si falta la env var, el endpoint responde
+// 503 en vez de tumbar el arranque (el login normal sigue funcionando).
+const { OAuth2Client } = require('google-auth-library');
+const GOOGLE_WEB_CLIENT_ID = process.env.GOOGLE_WEB_CLIENT_ID;
+const googleClient = GOOGLE_WEB_CLIENT_ID ? new OAuth2Client(GOOGLE_WEB_CLIENT_ID) : null;
 const JWT_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const cookieParser = require('cookie-parser');
 app.use(cookieParser());
@@ -2079,6 +2086,12 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
             return res.status(401).json({ error: 'Credenciales inválidas' });
         }
 
+        // Los usuarios creados vía Google no tienen passwordHash: para ellos el
+        // login por contraseña no aplica.
+        if (!user.passwordHash) {
+            return res.status(401).json({ error: 'Credenciales inválidas' });
+        }
+
         // Comparar contraseña con el hash de la BD (recuerda que tu esquema lo nombra "passwordHash")
         const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
         if (!isPasswordValid) {
@@ -2105,6 +2118,62 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Login con Google (usado por la app móvil). Recibe el ID token de Google,
+// lo verifica, y devuelve el mismo JWT + cookie que el login normal. Enlaza
+// por email verificado: si ya existe un usuario con ese correo, inicia sesión;
+// si no, lo crea sin contraseña.
+app.post('/api/auth/google', authLimiter, async (req, res) => {
+    if (!googleClient) {
+        return res.status(503).json({ error: 'Login con Google no configurado.' });
+    }
+    try {
+        const { idToken } = req.body;
+        if (!idToken) {
+            return res.status(400).json({ error: 'Falta el idToken de Google.' });
+        }
+
+        const ticket = await googleClient.verifyIdToken({
+            idToken,
+            audience: GOOGLE_WEB_CLIENT_ID
+        });
+        const payload = ticket.getPayload();
+        if (!payload.email || !payload.email_verified) {
+            return res.status(401).json({ error: 'La cuenta de Google no tiene un email verificado.' });
+        }
+
+        let user = await prisma.user.findUnique({ where: { email: payload.email } });
+        if (!user) {
+            user = await prisma.user.create({
+                data: {
+                    email: payload.email,
+                    firstName: payload.given_name || payload.name || 'Usuario',
+                    lastName: payload.family_name || '',
+                    role: 'PLAYER'
+                }
+            });
+        }
+
+        const token = jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            JWT_SECRET,
+            { expiresIn: JWT_EXPIRES_IN }
+        );
+        res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
+        res.json({
+            token,
+            user: {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName,
+                role: user.role
+            }
+        });
+    } catch (error) {
+        console.error('Google login error:', error.message);
+        return res.status(401).json({ error: 'Token de Google inválido.' });
     }
 });
 
