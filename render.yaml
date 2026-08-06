@@ -12,7 +12,7 @@ services:
     name: retro-hoops
     runtime: node
     plan: free
-    buildCommand: npm install
+    buildCommand: npm install && npx prisma migrate deploy
     startCommand: node index.js
     healthCheckPath: /
     envVars:
@@ -23,4 +23,8 @@ services:
       - key: JWT_SECRET
         sync: false
       - key: CLOUDINARY_URL
+        sync: false
+      # WEB client ID de Google (público, no secreto). Es el audience contra el
+      # que se verifica el ID token que manda la app móvil.
+      - key: GOOGLE_WEB_CLIENT_ID
         sync: false
