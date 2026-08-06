@@ -2036,7 +2036,7 @@ app.post('/api/teams/register-captain', authLimiter, async (req, res) => {
 // Ruta real para registro de usuario con bcrypt y JWT
 app.post('/api/auth/register', authLimiter, async (req, res) => {
     try {
-        const { email, password, firstName, lastName } = req.body;
+        const { email, password, firstName, lastName, role } = req.body;
 
         if (!email || !password || !firstName || !lastName) {
             return res.status(400).json({ error: 'Faltan datos obligatorios.' });
@@ -2058,13 +2058,14 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // Crear el usuario en la BD (asumiendo esquema con UUID, firstName, lastName y role)
-        const newUser = await prisma.user.create({
+     const newUser = await prisma.user.create({
             data: {
                 email,
                 passwordHash: hashedPassword,
                 firstName,
                 lastName,
-                role: 'PLAYER' // Default asignado en la DB también
+                // Solo ORGANIZER o PLAYER: nadie se autoasigna ADMIN al registrarse.
+                role: role === 'ORGANIZER' ? 'ORGANIZER' : 'PLAYER'
             }
         });
 
@@ -2108,6 +2109,7 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
         res.json({
             token,
+            isNew,
             user: {
                 id: user.id,
                 email: user.email,
@@ -2145,14 +2147,15 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
         }
 
         let user = await prisma.user.findUnique({ where: { email: payload.email } });
-        if (!user) {
-            user = await prisma.user.create({
-                data: {
-                    email: payload.email,
-                    firstName: payload.given_name || payload.name || 'Usuario',
-                    lastName: payload.family_name || '',
-                    role: 'PLAYER'
-                }
+            const isNew = !user;
+            if (!user) {
+                user = await prisma.user.create({
+                    data: {
+                        email: payload.email,
+                        firstName: payload.given_name || payload.name || 'Usuario',
+                        lastName: payload.family_name || '',
+                        role: 'PLAYER'
+                    }
             });
         }
 
@@ -2164,6 +2167,7 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
         res.cookie(AUTH_COOKIE_NAME, token, getAuthCookieOptions());
         res.json({
             token,
+            isNew,
             user: {
                 id: user.id,
                 email: user.email,
@@ -2176,6 +2180,31 @@ app.post('/api/auth/google', authLimiter, async (req, res) => {
         return res.status(401).json({ error: 'Token de Google inválido.' });
     }
 });
+
+// El usuario elige su propio rol tras entrar (lo usa el onboarding, sobre todo
+// para cuentas de Google que se crean sin pasar por el registro). Solo PLAYER u
+// ORGANIZER: nadie se autoasigna ADMIN.
+app.put('/api/auth/role', authenticateToken, async (req, res) => {
+    try {
+        const { role } = req.body;
+        if (role !== 'PLAYER' && role !== 'ORGANIZER') {
+            return res.status(400).json({ error: 'Rol inválido.' });
+        }
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { role },
+            select: {
+                id: true, email: true, firstName: true,
+                lastName: true, role: true, createdAt: true
+            }
+        });
+        res.json(user);
+    } catch (error) {
+        console.error('Error en PUT /api/auth/role:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
 
 app.post('/api/auth/logout', (req, res) => {
     res.clearCookie(AUTH_COOKIE_NAME, {
