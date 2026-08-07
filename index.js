@@ -2109,7 +2109,6 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
 
         res.json({
             token,
-            isNew,
             user: {
                 id: user.id,
                 email: user.email,
