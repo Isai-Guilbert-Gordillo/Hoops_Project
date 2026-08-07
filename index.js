@@ -1033,6 +1033,44 @@ app.delete('/api/enrollments/:id', authenticateToken, async (req, res) => {
     }
 });
 
+// Aprobar o rechazar una solicitud pendiente. Solo el organizador del torneo (o admin).
+// Al aprobar se revalida el cupo (pudo llenarse con otras aprobaciones mientras estaba pendiente).
+async function decideEnrollment(req, res, decision) {
+    try {
+        const { id } = req.params;
+        const enrollment = await prisma.tournamentEnrollment.findUnique({
+            where: { id },
+            include: { tournament: true }
+        });
+        if (!enrollment) return res.status(404).json({ error: 'Inscripción no encontrada' });
+
+        if (enrollment.tournament.organizerId !== req.user.id && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Sin permiso' });
+        }
+
+        if (decision === 'APPROVED') {
+            const approvedCount = await prisma.tournamentEnrollment.count({
+                where: { tournamentId: enrollment.tournamentId, status: 'APPROVED' }
+            });
+            if (approvedCount >= enrollment.tournament.maxTeams) {
+                return res.status(400).json({ error: 'El torneo ya alcanzó el máximo de equipos inscritos.' });
+            }
+        }
+
+        const updated = await prisma.tournamentEnrollment.update({
+            where: { id },
+            data: { status: decision }
+        });
+        res.json(updated);
+    } catch (error) {
+        console.error('Error al decidir inscripción:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+}
+
+app.put('/api/enrollments/:id/approve', authenticateToken, (req, res) => decideEnrollment(req, res, 'APPROVED'));
+app.put('/api/enrollments/:id/decline', authenticateToken, (req, res) => decideEnrollment(req, res, 'DECLINED'));
+
 // ENDPOINT A: Inscribir equipo en torneo
 // POST /api/tournaments/:tournamentId/enroll
 // Auth: Bearer token (capitán)
@@ -1075,36 +1113,40 @@ app.post('/api/tournaments/:id/enroll', authenticateToken, async (req, res) => {
             });
         }
 
-        // Validación 3: Torneo no está lleno
-
-        const currentEnrollments = await prisma.tournamentEnrollment.count({ where: { tournamentId } });
-        if (currentEnrollments >= tournament.maxTeams) {
+        // Solo cuenta contra el cupo lo que está APPROVED: las solicitudes pendientes
+        // no ocupan plaza hasta que el organizador las acepte.
+        const approvedCount = await prisma.tournamentEnrollment.count({
+            where: { tournamentId, status: 'APPROVED' }
+        });
+        if (approvedCount >= tournament.maxTeams) {
             return res.status(400).json({ error: 'El torneo ya alcanzó el máximo de equipos inscritos.' });
         }
 
-        // Validación 4: Equipo NO está ya inscrito en este torneo
+        // Bloquea duplicados vivos (PENDING o APPROVED); si estaba DECLINED puede volver a solicitar.
         const existing = await prisma.tournamentEnrollment.findFirst({
-            where: { tournamentId, teamId }
+            where: { tournamentId, teamId, status: { in: ['PENDING', 'APPROVED'] } }
         });
         if (existing) {
-            return res.status(409).json({ error: 'Este equipo ya está inscrito en el torneo.' });
+            return res.status(409).json({ error: 'Este equipo ya tiene una solicitud o inscripción en el torneo.' });
         }
 
-        // Crear TournamentEnrollment
+        // El admin (y el propio organizador si algún día vuelve a poder inscribir) aprueban en el acto;
+        // el capitán queda como solicitud pendiente hasta que el organizador la acepte.
+        const isAdmin = await userIsAdmin(req.user.id);
+        const status = isAdmin ? 'APPROVED' : 'PENDING';
+
         const enrollment = await prisma.tournamentEnrollment.create({
-            data: {
-                tournamentId,
-                teamId,
-                amountPaid: 0
-            }
+            data: { tournamentId, teamId, amountPaid: 0, status }
         });
 
         res.status(201).json({
             enrollmentId: enrollment.id,
-            status: 'APPROVED',
+            status,
             teamId,
             tournamentId,
-            message: 'Equipo inscrito exitosamente en el torneo'
+            message: status === 'APPROVED'
+                ? 'Equipo inscrito exitosamente en el torneo'
+                : 'Solicitud enviada al organizador; queda pendiente de aprobación'
         });
     } catch (error) {
         console.error(error);
