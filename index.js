@@ -2231,6 +2231,21 @@ app.put('/api/auth/role', authenticateToken, async (req, res) => {
         if (role !== 'PLAYER' && role !== 'ORGANIZER') {
             return res.status(400).json({ error: 'Rol inválido.' });
         }
+
+        // Un ADMIN que pase por el onboarding se degradaba a si mismo con esta
+        // ruta, y como el panel de administracion exige rol ADMIN se quedaba sin
+        // forma de recuperarlo: un candado que se cierra por dentro. El cambio de
+        // rol de un admin va por PUT /api/users/:id/role, que si pide ser admin.
+        const actual = await prisma.user.findUnique({
+            where: { id: req.user.id },
+            select: { role: true }
+        });
+        if (actual?.role === 'ADMIN') {
+            return res.status(403).json({
+                error: 'Un administrador no puede cambiar su propio rol desde aqui.'
+            });
+        }
+
         const user = await prisma.user.update({
             where: { id: req.user.id },
             data: { role },
@@ -2874,6 +2889,29 @@ app.get('/api/players/:id', async (req, res) => {
     } catch (error) {
         console.error("Error fetching player profile:", error);
         res.status(500).json({ error: 'Error del servidor al obtener el perfil del jugador' });
+    }
+});
+
+app.post('/api/admin/bootstrap', async (req, res) => {
+    try {
+        const secreto = process.env.BOOTSTRAP_SECRET;
+        if (!secreto || req.body.secret !== secreto) {
+            return res.status(404).json({ error: 'Recurso no encontrado' });
+        }
+        const email = String(req.body.email || '').trim().toLowerCase();
+        const existente = await prisma.user.findFirst({ where: { email } });
+        if (!existente) {
+            return res.status(404).json({ error: `No hay ninguna cuenta con ${email}` });
+        }
+        const user = await prisma.user.update({
+            where: { id: existente.id },
+            data: { role: 'ADMIN' },
+            select: { email: true, role: true }
+        });
+        res.json(user);
+    } catch (error) {
+        console.error('Error en bootstrap de admin:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
     }
 });
 
