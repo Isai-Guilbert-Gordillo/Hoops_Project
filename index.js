@@ -2335,6 +2335,159 @@ app.put('/api/auth/password', authLimiter, authenticateToken, async (req, res) =
     }
 });
 
+// ──────────────────────────────────────────────────────────────
+// Reseteo de contraseña por correo
+// ──────────────────────────────────────────────────────────────
+// Base pública del sitio (donde vive la página /reset-password). En Render es la
+// URL del servicio; en local, localhost.
+const APP_BASE_URL = process.env.APP_BASE_URL || 'https://hoops-project.onrender.com';
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+const RESET_FROM_EMAIL = process.env.RESET_FROM_EMAIL || 'RetroHoops <onboarding@resend.dev>';
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
+
+// Envía el correo de reseteo vía la API REST de Resend (sin SDK, con fetch).
+// Si no hay API key configurada, no truena: registra el link para no bloquear el
+// desarrollo local.
+async function sendResetEmail(email, link) {
+    if (!RESEND_API_KEY) {
+        console.warn('[reset] RESEND_API_KEY sin configurar. Link de reseteo:', link);
+        return;
+    }
+    const res = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${RESEND_API_KEY}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            from: RESET_FROM_EMAIL,
+            to: email,
+            subject: 'Restablece tu contraseña de RetroHoops',
+            html: `<p>Recibimos una solicitud para restablecer tu contraseña.</p>
+                   <p><a href="${link}">Haz clic aquí para elegir una nueva</a> (el enlace vence en 1 hora).</p>
+                   <p>Si no lo pediste, ignora este correo: tu contraseña sigue igual.</p>`,
+        }),
+    });
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Resend ${res.status}: ${body}`);
+    }
+}
+
+// Paso 1: el usuario pide el enlace. Responde SIEMPRE 200 con el mismo mensaje,
+// exista o no la cuenta, para no revelar qué correos están registrados.
+app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
+    try {
+        const email = (req.body.email || '').trim().toLowerCase();
+        const generic = { message: 'Si el correo existe, te enviamos un enlace para restablecer la contraseña.' };
+        if (!email) return res.json(generic);
+
+        const user = await prisma.user.findUnique({ where: { email } });
+        // Solo cuentas con contraseña: las de Google no tienen una que resetear.
+        if (user && user.passwordHash) {
+            const token = crypto.randomBytes(32).toString('hex');
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+            await prisma.user.update({
+                where: { id: user.id },
+                data: {
+                    resetTokenHash: tokenHash,
+                    resetTokenExpiry: new Date(Date.now() + RESET_TOKEN_TTL_MS),
+                },
+            });
+            const link = `${APP_BASE_URL}/reset-password?token=${token}`;
+            try {
+                await sendResetEmail(email, link);
+            } catch (mailErr) {
+                console.error('[reset] fallo al enviar correo:', mailErr.message);
+                // No revelamos el fallo al cliente; el mensaje genérico se mantiene.
+            }
+        }
+        res.json(generic);
+    } catch (error) {
+        console.error('Error en POST /api/auth/forgot-password:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Paso 2: página web a la que apunta el enlace del correo.
+app.get('/reset-password', (req, res) => {
+    res.render('reset-password', { token: req.query.token || '', minLength: MIN_PASSWORD_LENGTH });
+});
+
+// Paso 3: se envía el token + la nueva contraseña.
+app.post('/api/auth/reset-password', authLimiter, async (req, res) => {
+    try {
+        const { token, password } = req.body;
+        if (!token || !password) {
+            return res.status(400).json({ error: 'Falta el token o la contraseña.' });
+        }
+        if (password.length < MIN_PASSWORD_LENGTH) {
+            return res.status(400).json({
+                error: `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`
+            });
+        }
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
+        const user = await prisma.user.findFirst({
+            where: { resetTokenHash: tokenHash, resetTokenExpiry: { gt: new Date() } },
+        });
+        if (!user) {
+            return res.status(400).json({ error: 'El enlace es inválido o ya venció. Solicita uno nuevo.' });
+        }
+        await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                passwordHash: await bcrypt.hash(password, 10),
+                resetTokenHash: null,
+                resetTokenExpiry: null,
+            },
+        });
+        res.json({ message: 'Contraseña actualizada' });
+    } catch (error) {
+        console.error('Error en POST /api/auth/reset-password:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Borrado de cuenta (requisito de Google Play: el usuario debe poder eliminarla
+// desde la app). Borrado limpio solo si no administra datos de otros; si es
+// organizador de torneos o capitán de equipos, se bloquea con un aviso para que
+// primero los elimine/transfiera y no arrastrar en cascada datos ajenos.
+app.delete('/api/auth/me', authLimiter, authenticateToken, async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const [tournaments, teams] = await Promise.all([
+            prisma.tournament.count({ where: { organizerId: userId } }),
+            prisma.team.count({ where: { captainId: userId } }),
+        ]);
+        if (tournaments > 0 || teams > 0) {
+            return res.status(409).json({
+                error: 'Antes de borrar tu cuenta, elimina o transfiere los torneos y equipos que administras.'
+            });
+        }
+        // Los récords del minijuego se conservan pero se desligan de la cuenta.
+        await prisma.arcadeScore.updateMany({ where: { userId }, data: { userId: null } });
+        await prisma.user.delete({ where: { id: userId } });
+        res.json({ message: 'Cuenta eliminada' });
+    } catch (error) {
+        console.error('Error en DELETE /api/auth/me:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
+// Comprueba si un correo ya está registrado, para avisar en el formulario de
+// registro antes de completar el onboarding. Rate-limited como el resto de auth.
+app.post('/api/auth/check-email', authLimiter, async (req, res) => {
+    try {
+        const email = (req.body.email || '').trim().toLowerCase();
+        if (!email) return res.status(400).json({ error: 'Falta el correo.' });
+        const existing = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+        res.json({ available: !existing });
+    } catch (error) {
+        console.error('Error en POST /api/auth/check-email:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
 // Obtener standings del torneo
 app.get('/api/tournaments/:id/standings', async (req, res) => {
     try {

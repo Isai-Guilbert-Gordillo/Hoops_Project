@@ -28,6 +28,10 @@ model User {
   lastName     String
   role         String       @default("PLAYER")
   phoneNumber  String?
+  // Reseteo de contraseña: se guarda el SHA-256 del token (nunca el token en
+  // claro) y su caducidad. Ambos se limpian al usarlo.
+  resetTokenHash   String?
+  resetTokenExpiry DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 
