@@ -2365,6 +2365,8 @@ async function sendResetEmail(email, link) {
             subject: 'Restablece tu contraseña de RetroHoops',
             html: `<p>Recibimos una solicitud para restablecer tu contraseña.</p>
                    <p><a href="${link}">Haz clic aquí para elegir una nueva</a> (el enlace vence en 1 hora).</p>
+                   <p>Si el botón no funciona, copia y pega este enlace completo en tu navegador:</p>
+                   <p style="word-break:break-all"><a href="${link}">${link}</a></p>
                    <p>Si no lo pediste, ignora este correo: tu contraseña sigue igual.</p>`,
         }),
     });
