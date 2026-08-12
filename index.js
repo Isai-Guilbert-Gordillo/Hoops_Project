@@ -11,7 +11,6 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const sharp = require('sharp');
 const helmet = require('helmet');
-const nodemailer = require('nodemailer');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 const cors = require('cors');
@@ -2347,42 +2346,41 @@ app.put('/api/auth/password', authLimiter, authenticateToken, async (req, res) =
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://hoops-project.onrender.com';
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 
-// Correo por Gmail SMTP: se envía desde tu propia cuenta con una "contraseña de
-// aplicación" de Google (no la normal). No requiere dominio propio y llega a
-// cualquier destinatario (~500/día). Requiere verificación en 2 pasos activa en
-// la cuenta GMAIL_USER.
-const GMAIL_USER = process.env.GMAIL_USER;
-const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
-// Puerto 587 (STARTTLS) explícito, no 465: Render free filtra el 465 y la
-// conexión hacía timeout. Timeouts cortos para que un fallo se vea rápido.
-const mailTransport = (GMAIL_USER && GMAIL_APP_PASSWORD)
-    ? nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
-        connectionTimeout: 10000,
-        greetingTimeout: 10000,
-    })
-    : null;
+// Correo por la API HTTP de Brevo (puerto 443). Se usa HTTP, no SMTP, porque
+// Render free bloquea los puertos SMTP salientes (465/587 hacían timeout). No
+// requiere dominio: basta verificar RESET_SENDER_EMAIL como remitente en Brevo.
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const RESET_SENDER_EMAIL = process.env.RESET_SENDER_EMAIL || 'duecontrola@gmail.com';
 
-// Si no hay credenciales configuradas, no truena: registra el link para no
-// bloquear el desarrollo local.
+// Si no hay API key configurada, no truena: registra el link para no bloquear el
+// desarrollo local.
 async function sendResetEmail(email, link) {
-    if (!mailTransport) {
-        console.warn('[reset] GMAIL_USER/GMAIL_APP_PASSWORD sin configurar. Link de reseteo:', link);
+    if (!BREVO_API_KEY) {
+        console.warn('[reset] BREVO_API_KEY sin configurar. Link de reseteo:', link);
         return;
     }
-    await mailTransport.sendMail({
-        from: `RetroHoops <${GMAIL_USER}>`,
-        to: email,
-        subject: 'Restablece tu contraseña de RetroHoops',
-        html: `<p>Recibimos una solicitud para restablecer tu contraseña.</p>
+    const res = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+            'api-key': BREVO_API_KEY,
+            'Content-Type': 'application/json',
+            'accept': 'application/json',
+        },
+        body: JSON.stringify({
+            sender: { email: RESET_SENDER_EMAIL, name: 'RetroHoops' },
+            to: [{ email }],
+            subject: 'Restablece tu contraseña de RetroHoops',
+            htmlContent: `<p>Recibimos una solicitud para restablecer tu contraseña.</p>
                <p><a href="${link}">Haz clic aquí para elegir una nueva</a> (el enlace vence en 1 hora).</p>
                <p>Si el botón no funciona, copia y pega este enlace completo en tu navegador:</p>
                <p style="word-break:break-all"><a href="${link}">${link}</a></p>
                <p>Si no lo pediste, ignora este correo: tu contraseña sigue igual.</p>`,
+        }),
     });
+    if (!res.ok) {
+        const body = await res.text().catch(() => '');
+        throw new Error(`Brevo ${res.status}: ${body}`);
+    }
 }
 
 // Paso 1: el usuario pide el enlace. Responde SIEMPRE 200 con el mismo mensaje,
