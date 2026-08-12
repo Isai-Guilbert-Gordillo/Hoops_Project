@@ -1,4 +1,7 @@
 require('dotenv').config();
+// Render (free) no tiene salida IPv6: si Node resuelve un host (p.ej. smtp.gmail.com)
+// a IPv6 primero, la conexión falla con ENETUNREACH. Forzar IPv4 primero lo evita.
+require('dns').setDefaultResultOrder('ipv4first');
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
