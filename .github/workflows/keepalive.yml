@@ -1,26 +1,19 @@
-# Mantiene despierta la instancia gratis de Render.
+name: keep-alive
+
+# Render free duerme el servicio tras ~15 min sin tráfico (arrancar de nuevo
+# tarda ~50s). Este job lo pinga cada 10 min para mantenerlo despierto.
 #
-# El plan Free de Render duerme tras ~15 min sin tráfico; al despertar tarda
-# ~50s y puede servir 404 transitorios en CSS/JS (la página se ve "sin estilos").
-# Este workflow le hace un ping cada 5 minutos para que nunca se duerma, así
-# quien abra el enlace siempre la ve al instante y con estilos.
-name: Keep Render awake
+# El ping es EXTERNO a Render a propósito: un self-ping dentro del server no
+# funciona, porque una vez dormido no hay proceso que lo dispare.
 
 on:
   schedule:
-    # Cada 5 minutos. GitHub a veces retrasa los cron; 5 min da margen frente al
-    # umbral de 15 min de Render.
-    - cron: "*/5 * * * *"
-  workflow_dispatch: {} # permite dispararlo a mano desde la pestaña Actions
+    - cron: '*/10 * * * *'   # cada 10 min (margen bajo el spindown de 15 min)
+  workflow_dispatch:          # permite dispararlo a mano desde la pestaña Actions
 
 jobs:
   ping:
     runs-on: ubuntu-latest
     steps:
-      - name: Ping al sitio
-        run: |
-          echo "Ping $(date -u)"
-          curl -sSf --retry 2 --max-time 90 -o /dev/null \
-            https://hoops-project.onrender.com/ \
-            && echo "OK: sitio despierto" \
-            || (echo "Ping falló (puede ser arranque en frío); reintentará en 5 min" && exit 0)
+      # --max-time 60: si estaba dormido, el arranque en frío tarda hasta ~50s.
+      - run: curl -fsS --max-time 60 https://hoops-project.onrender.com/ > /dev/null
