@@ -2353,10 +2353,16 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 // la cuenta GMAIL_USER.
 const GMAIL_USER = process.env.GMAIL_USER;
 const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+// Puerto 587 (STARTTLS) explícito, no 465: Render free filtra el 465 y la
+// conexión hacía timeout. Timeouts cortos para que un fallo se vea rápido.
 const mailTransport = (GMAIL_USER && GMAIL_APP_PASSWORD)
     ? nodemailer.createTransport({
-        service: 'gmail',
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
         auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
     })
     : null;
 
