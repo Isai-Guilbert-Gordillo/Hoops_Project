@@ -8,6 +8,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const sharp = require('sharp');
 const helmet = require('helmet');
+const nodemailer = require('nodemailer');
 const rateLimit = require('express-rate-limit');
 const { PrismaClient } = require('@prisma/client');
 const cors = require('cors');
@@ -2341,39 +2342,38 @@ app.put('/api/auth/password', authLimiter, authenticateToken, async (req, res) =
 // Base pública del sitio (donde vive la página /reset-password). En Render es la
 // URL del servicio; en local, localhost.
 const APP_BASE_URL = process.env.APP_BASE_URL || 'https://hoops-project.onrender.com';
-const RESEND_API_KEY = process.env.RESEND_API_KEY;
-const RESET_FROM_EMAIL = process.env.RESET_FROM_EMAIL || 'RetroHoops <onboarding@resend.dev>';
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hora
 
-// Envía el correo de reseteo vía la API REST de Resend (sin SDK, con fetch).
-// Si no hay API key configurada, no truena: registra el link para no bloquear el
-// desarrollo local.
+// Correo por Gmail SMTP: se envía desde tu propia cuenta con una "contraseña de
+// aplicación" de Google (no la normal). No requiere dominio propio y llega a
+// cualquier destinatario (~500/día). Requiere verificación en 2 pasos activa en
+// la cuenta GMAIL_USER.
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const mailTransport = (GMAIL_USER && GMAIL_APP_PASSWORD)
+    ? nodemailer.createTransport({
+        service: 'gmail',
+        auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+    })
+    : null;
+
+// Si no hay credenciales configuradas, no truena: registra el link para no
+// bloquear el desarrollo local.
 async function sendResetEmail(email, link) {
-    if (!RESEND_API_KEY) {
-        console.warn('[reset] RESEND_API_KEY sin configurar. Link de reseteo:', link);
+    if (!mailTransport) {
+        console.warn('[reset] GMAIL_USER/GMAIL_APP_PASSWORD sin configurar. Link de reseteo:', link);
         return;
     }
-    const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${RESEND_API_KEY}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            from: RESET_FROM_EMAIL,
-            to: email,
-            subject: 'Restablece tu contraseña de RetroHoops',
-            html: `<p>Recibimos una solicitud para restablecer tu contraseña.</p>
-                   <p><a href="${link}">Haz clic aquí para elegir una nueva</a> (el enlace vence en 1 hora).</p>
-                   <p>Si el botón no funciona, copia y pega este enlace completo en tu navegador:</p>
-                   <p style="word-break:break-all"><a href="${link}">${link}</a></p>
-                   <p>Si no lo pediste, ignora este correo: tu contraseña sigue igual.</p>`,
-        }),
+    await mailTransport.sendMail({
+        from: `RetroHoops <${GMAIL_USER}>`,
+        to: email,
+        subject: 'Restablece tu contraseña de RetroHoops',
+        html: `<p>Recibimos una solicitud para restablecer tu contraseña.</p>
+               <p><a href="${link}">Haz clic aquí para elegir una nueva</a> (el enlace vence en 1 hora).</p>
+               <p>Si el botón no funciona, copia y pega este enlace completo en tu navegador:</p>
+               <p style="word-break:break-all"><a href="${link}">${link}</a></p>
+               <p>Si no lo pediste, ignora este correo: tu contraseña sigue igual.</p>`,
     });
-    if (!res.ok) {
-        const body = await res.text().catch(() => '');
-        throw new Error(`Resend ${res.status}: ${body}`);
-    }
 }
 
 // Paso 1: el usuario pide el enlace. Responde SIEMPRE 200 con el mismo mensaje,
