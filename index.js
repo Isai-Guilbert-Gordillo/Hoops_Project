@@ -2392,10 +2392,6 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
         if (!email) return res.json(generic);
 
         const user = await prisma.user.findUnique({ where: { email } });
-        // Diagnóstico (solo en logs del servidor, nunca al cliente): por qué se
-        // envía o no. Quitar cuando el reset quede confirmado.
-        if (!user) console.log('[reset] no existe cuenta para', email);
-        else if (!user.passwordHash) console.log('[reset] cuenta de Google (sin contraseña):', email);
         // Solo cuentas con contraseña: las de Google no tienen una que resetear.
         if (user && user.passwordHash) {
             const token = crypto.randomBytes(32).toString('hex');
@@ -2410,7 +2406,6 @@ app.post('/api/auth/forgot-password', authLimiter, async (req, res) => {
             const link = `${APP_BASE_URL}/reset-password?token=${token}`;
             try {
                 await sendResetEmail(email, link);
-                console.log('[reset] correo aceptado por Gmail para', email);
             } catch (mailErr) {
                 console.error('[reset] fallo al enviar correo:', mailErr.message);
                 // No revelamos el fallo al cliente; el mensaje genérico se mantiene.
