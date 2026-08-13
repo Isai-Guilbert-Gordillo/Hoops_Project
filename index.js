@@ -1841,15 +1841,41 @@ app.get('/api/teams', async (req, res) => {
                         lastName: true
                     }
                 },
-                // Conteo de jugadores: el frontend lo usa para distinguir equipos
-                // homónimos y marcar los que aún no son elegibles (<3 jugadores).
-                _count: { select: { players: true } }
+                // Conteo de jugadores (elegibilidad, <3) y de ligas en las que
+                // el equipo está inscrito y aprobado (para el "estado" en la app).
+                _count: {
+                    select: {
+                        players: true,
+                        enrollments: { where: { status: 'APPROVED' } }
+                    }
+                }
             },
             orderBy: {
                 createdAt: 'desc'
             }
         });
-        res.status(200).json(teams);
+
+        // Récord (V-D) de una sola pasada: se traen los partidos terminados y se
+        // tallan por equipo en memoria, en vez de una consulta por cada equipo.
+        const matches = await prisma.match.findMany({
+            where: { status: 'FINISHED' },
+            select: { homeTeamId: true, awayTeamId: true, homeScore: true, awayScore: true }
+        });
+        const record = {};
+        const bump = (id, key) => { (record[id] ||= { w: 0, l: 0 })[key]++; };
+        for (const m of matches) {
+            if (m.homeScore === m.awayScore) continue; // empate: no cuenta
+            const homeWon = m.homeScore > m.awayScore;
+            bump(m.homeTeamId, homeWon ? 'w' : 'l');
+            bump(m.awayTeamId, homeWon ? 'l' : 'w');
+        }
+
+        const withStats = teams.map((t) => ({
+            ...t,
+            leaguesCount: t._count.enrollments,
+            record: record[t.id] || { w: 0, l: 0 }
+        }));
+        res.status(200).json(withStats);
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: 'Error al obtener franquicias completas' });
