@@ -1994,6 +1994,64 @@ app.post('/api/teams/:id/players', authenticateToken, (req, res, next) => {
     }
 });
 
+// Editar un jugador del roster (Protegido, solo el capitán de su equipo o admin)
+app.put('/api/players/:id', authenticateToken, (req, res, next) => {
+    uploadPlayerPhoto.single('photo')(req, res, (err) => {
+        if (err) return res.status(400).json({ error: err.message || 'Error al subir la foto' });
+        next();
+    });
+}, processUploadedImage, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { name, jerseyNumber, position } = req.body;
+
+        const player = await prisma.player.findUnique({ where: { id }, include: { team: true } });
+        if (!player) return res.status(404).json({ error: 'Jugador no encontrado' });
+
+        if (req.user.id !== player.team.captainId && !(await userIsAdmin(req.user.id))) {
+            return res.status(403).json({ error: 'Solo el capitán de la franquicia puede editar jugadores.' });
+        }
+
+        if (!name || !name.trim()) {
+            return res.status(400).json({ error: 'El nombre del jugador es obligatorio.' });
+        }
+
+        const parsedJersey = parseInt(jerseyNumber, 10);
+        if (isNaN(parsedJersey)) {
+            return res.status(400).json({ error: 'El número de jersey es obligatorio.' });
+        }
+
+        const duplicateJersey = await prisma.player.findFirst({
+            where: { teamId: player.teamId, jerseyNumber: parsedJersey, NOT: { id } }
+        });
+        if (duplicateJersey) {
+            return res.status(400).json({ error: `El número ${parsedJersey} ya está en uso en este equipo.` });
+        }
+
+        const uploadedPhotoUrl = await resolveUploadedImageUrl(req, 'players');
+        const newPhotoUrl = uploadedPhotoUrl || player.photoUrl;
+
+        const updated = await prisma.player.update({
+            where: { id },
+            data: {
+                name: toTitleCase(name),
+                jerseyNumber: parsedJersey,
+                position,
+                photoUrl: newPhotoUrl
+            }
+        });
+
+        if (uploadedPhotoUrl && player.photoUrl) {
+            deleteStoredImage(player.photoUrl);
+        }
+
+        res.json(updated);
+    } catch (error) {
+        console.error('Error al editar jugador:', error);
+        res.status(500).json({ error: 'Error interno del servidor' });
+    }
+});
+
 // Eliminar un jugador del roster (Protegido, solo el capitán de su equipo)
 app.delete('/api/players/:id', authenticateToken, async (req, res) => {
     try {
@@ -2300,6 +2358,27 @@ app.post('/api/auth/logout', (req, res) => {
     });
 
     res.status(200).json({ message: 'Logout exitoso' });
+});
+
+// Edita el nombre/apellido de la cuenta propia. El correo no se toca aquí: es
+// el identificador de login y cambiarlo tiene implicaciones aparte (aviso,
+// re-verificación) que no está pedido.
+app.put('/api/auth/me', authenticateToken, async (req, res) => {
+    try {
+        const { firstName, lastName } = req.body;
+        if (!firstName?.trim() || !lastName?.trim()) {
+            return res.status(400).json({ error: 'Nombre y apellido son obligatorios.' });
+        }
+        const user = await prisma.user.update({
+            where: { id: req.user.id },
+            data: { firstName: firstName.trim(), lastName: lastName.trim() },
+            select: { id: true, email: true, firstName: true, lastName: true, role: true, createdAt: true }
+        });
+        res.json(user);
+    } catch (error) {
+        console.error('Error en PUT /api/auth/me:', error);
+        res.status(500).json({ error: 'Error al actualizar el perfil' });
+    }
 });
 
 app.get('/api/auth/me', authenticateToken, async (req, res) => {
